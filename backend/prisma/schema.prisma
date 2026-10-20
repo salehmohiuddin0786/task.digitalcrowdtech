@@ -1,0 +1,476 @@
+// Prisma Schema for TaskDigitalCrowd
+// Multi-tenant SaaS Task Board Manager
+// Digital Crowd Technologies
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// -------------------------------------------------------------
+// Core Company / Multi-Tenant & Identity Models
+// -------------------------------------------------------------
+
+model Tenant {
+  id              String         @id @default(uuid())
+  name            String         @db.VarChar(191)
+  slug            String         @unique @db.VarChar(100)
+  domain          String?        @db.VarChar(191)
+  logoUrl         String?        @db.VarChar(500)
+  timezone        String         @default("Asia/Kolkata") @db.VarChar(50)
+  currency        String         @default("INR") @db.VarChar(10)
+  isSuspended     Boolean        @default(false)
+  planId          String?        @db.VarChar(50)
+  planTier        String         @default("starter") @db.VarChar(50) // starter, business, growth, enterprise
+  maxUsers        Int            @default(5)
+  maxBranches     Int            @default(1)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  members         TenantMember[]
+  branches        Branch[]
+  teams           Team[]
+  tasks           Task[]
+  invitations     Invitation[]
+  recurrenceRules RecurrenceRule[]
+  notifications   Notification[]
+  auditLogs       AuditLog[]
+  subscriptions   Subscription[]
+
+  @@map("tenants")
+}
+
+model User {
+  id              String         @id @default(uuid())
+  email           String         @unique @db.VarChar(191)
+  passwordHash    String         @db.VarChar(255)
+  fullName        String         @db.VarChar(191)
+  phone           String?        @db.VarChar(30)
+  avatarUrl       String?        @db.VarChar(500)
+  isPlatformAdmin Boolean        @default(false)
+  isActive        Boolean        @default(true)
+  emailVerifiedAt DateTime?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  memberships     TenantMember[]
+  refreshSessions RefreshSession[]
+  tasksCreated    Task[]         @relation("TasksCreated")
+  taskAssignments TaskAssignment[]
+  comments        TaskComment[]
+  activityLogs    TaskActivityLog[]
+  reviewsGiven    TaskReview[]
+  notifications   Notification[]
+  auditLogs       AuditLog[]
+
+  @@map("users")
+}
+
+model Role {
+  id              String           @id @default(uuid())
+  name            String           @unique @db.VarChar(50) // SUPER_ADMIN, OWNER, BRANCH_MANAGER, TEAM_LEADER, EMPLOYEE, VIEWER
+  label           String           @db.VarChar(100)
+  description     String?          @db.VarChar(255)
+  isSystem        Boolean          @default(true)
+
+  members         TenantMember[]
+  permissions     RolePermission[]
+
+  @@map("roles")
+}
+
+model Permission {
+  id              String           @id @default(uuid())
+  slug            String           @unique @db.VarChar(100) // e.g. tasks.create, tasks.approve, branches.manage
+  module          String           @db.VarChar(50) // tasks, branches, teams, members, reports, billing, settings
+  description     String?          @db.VarChar(255)
+
+  roles           RolePermission[]
+
+  @@map("permissions")
+}
+
+model RolePermission {
+  roleId          String
+  permissionId    String
+
+  role            Role             @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission      Permission       @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+model TenantMember {
+  id              String         @id @default(uuid())
+  tenantId        String
+  userId          String
+  roleId          String
+  branchId        String?
+  designation     String?        @db.VarChar(100)
+  status          String         @default("ACTIVE") @db.VarChar(20) // ACTIVE, INVITED, SUSPENDED
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  tenant          Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user            User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role            Role           @relation(fields: [roleId], references: [id])
+  branch          Branch?        @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  teamMemberships TeamMember[]
+
+  @@unique([tenantId, userId])
+  @@index([tenantId, roleId])
+  @@map("tenant_members")
+}
+
+model Branch {
+  id              String         @id @default(uuid())
+  tenantId        String
+  name            String         @db.VarChar(191)
+  code            String?        @db.VarChar(50)
+  address         String?        @db.Text
+  city            String?        @db.VarChar(100)
+  state           String?        @db.VarChar(100)
+  country         String         @default("India") @db.VarChar(100)
+  pincode         String?        @db.VarChar(20)
+  isActive        Boolean        @default(true)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  tenant          Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  members         TenantMember[]
+  teams           Team[]
+  tasks           Task[]
+
+  @@index([tenantId])
+  @@map("branches")
+}
+
+model Team {
+  id              String         @id @default(uuid())
+  tenantId        String
+  branchId        String?
+  name            String         @db.VarChar(191)
+  description     String?        @db.VarChar(255)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  tenant          Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch          Branch?        @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  members         TeamMember[]
+  tasks           Task[]
+
+  @@index([tenantId, branchId])
+  @@map("teams")
+}
+
+model TeamMember {
+  id              String         @id @default(uuid())
+  teamId          String
+  memberId        String
+  isLeader        Boolean        @default(false)
+  createdAt       DateTime       @default(now())
+
+  team            Team           @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  member          TenantMember   @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, memberId])
+  @@map("team_members")
+}
+
+model RefreshSession {
+  id              String         @id @default(uuid())
+  userId          String
+  tokenHash       String         @unique @db.VarChar(191)
+  ipAddress       String?        @db.VarChar(50)
+  userAgent       String?        @db.Text
+  isRevoked       Boolean        @default(false)
+  expiresAt       DateTime
+  createdAt       DateTime       @default(now())
+
+  user            User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRevoked])
+  @@map("refresh_sessions")
+}
+
+model Invitation {
+  id              String         @id @default(uuid())
+  tenantId        String
+  email           String         @db.VarChar(191)
+  roleId          String
+  branchId        String?
+  token           String         @unique @db.VarChar(191)
+  expiresAt       DateTime
+  acceptedAt      DateTime?
+  createdAt       DateTime       @default(now())
+
+  tenant          Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, email])
+  @@map("invitations")
+}
+
+// -------------------------------------------------------------
+// Task Management Models
+// -------------------------------------------------------------
+
+model Task {
+  id              String         @id @default(uuid())
+  tenantId        String
+  taskNumber      Int            @unique @default(autoincrement())
+  title           String         @db.VarChar(255)
+  description     String?        @db.Text
+  priority        String         @default("NORMAL") @db.VarChar(20) // LOW, NORMAL, HIGH, URGENT
+  status          String         @default("PENDING") @db.VarChar(30) // PENDING, IN_PROGRESS, SUBMITTED, CHANGES_REQUESTED, COMPLETED, CANCELLED
+  category        String?        @db.VarChar(100)
+  branchId        String?
+  teamId          String?
+  createdById     String
+  startDate       DateTime?
+  dueDate         DateTime?
+  completedAt     DateTime?
+  requiresProof   Boolean        @default(false)
+  proofType       String?        @db.VarChar(50) // PHOTO, VIDEO, BOTH, OPTIONAL
+  recurrenceId    String?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  tenant          Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch          Branch?        @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  team            Team?          @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  createdBy       User           @relation("TasksCreated", fields: [createdById], references: [id])
+  recurrenceRule  RecurrenceRule? @relation(fields: [recurrenceId], references: [id], onDelete: SetNull)
+
+  assignments     TaskAssignment[]
+  checklists      TaskChecklistItem[]
+  prerequisites   TaskDependency[] @relation("DependentTask") // Tasks this task depends on
+  dependents      TaskDependency[] @relation("PrerequisiteTask") // Tasks depending on this task
+  comments        TaskComment[]
+  activityLogs    TaskActivityLog[]
+  evidence        TaskEvidence[]
+  reviews         TaskReview[]
+
+  @@index([tenantId, status])
+  @@index([tenantId, branchId])
+  @@index([tenantId, dueDate])
+  @@index([createdById])
+  @@map("tasks")
+}
+
+model TaskAssignment {
+  id              String         @id @default(uuid())
+  taskId          String
+  userId          String
+  assignedAt      DateTime       @default(now())
+
+  task            Task           @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user            User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, userId])
+  @@index([userId])
+  @@map("task_assignments")
+}
+
+model TaskChecklistItem {
+  id              String         @id @default(uuid())
+  taskId          String
+  title           String         @db.VarChar(255)
+  isCompleted     Boolean        @default(false)
+  completedById   String?
+  completedAt     DateTime?
+  sortOrder       Int            @default(0)
+
+  task            Task           @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([taskId])
+  @@map("task_checklist_items")
+}
+
+model TaskDependency {
+  id                  String     @id @default(uuid())
+  taskId              String     // The task that is blocked
+  prerequisiteTaskId  String     // The prerequisite task that must be completed first
+  isOverridden        Boolean    @default(false)
+  overrideReason      String?    @db.VarChar(255)
+  overriddenById      String?
+  createdAt           DateTime   @default(now())
+
+  task                Task       @relation("DependentTask", fields: [taskId], references: [id], onDelete: Cascade)
+  prerequisiteTask    Task       @relation("PrerequisiteTask", fields: [prerequisiteTaskId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, prerequisiteTaskId])
+  @@index([taskId])
+  @@index([prerequisiteTaskId])
+  @@map("task_dependencies")
+}
+
+model TaskComment {
+  id              String         @id @default(uuid())
+  taskId          String
+  userId          String
+  content         String         @db.Text
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  task            Task           @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user            User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([taskId])
+  @@map("task_comments")
+}
+
+model TaskActivityLog {
+  id              String         @id @default(uuid())
+  taskId          String
+  userId          String?
+  action          String         @db.VarChar(100) // CREATED, STATUS_CHANGED, ASSIGNED, COMMENTED, EVIDENCE_UPLOADED, APPROVED, REJECTED, DEPENDENCY_OVERRIDDEN
+  metadata        String?        @db.Text // JSON metadata
+  createdAt       DateTime       @default(now())
+
+  task            Task           @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user            User?          @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([taskId, createdAt])
+  @@map("task_activity_logs")
+}
+
+model TaskEvidence {
+  id              String         @id @default(uuid())
+  taskId          String
+  uploadedById    String
+  fileType        String         @db.VarChar(20) // PHOTO, VIDEO, DOCUMENT
+  fileName        String         @db.VarChar(255)
+  fileUrl         String         @db.VarChar(500)
+  fileSize        Int            @default(0)
+  mimeType        String         @db.VarChar(100)
+  caption         String?        @db.VarChar(255)
+  createdAt       DateTime       @default(now())
+
+  task            Task           @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([taskId])
+  @@map("task_evidence")
+}
+
+model TaskReview {
+  id              String         @id @default(uuid())
+  taskId          String
+  reviewerId      String
+  decision        String         @db.VarChar(20) // APPROVED, CHANGES_REQUESTED
+  feedback        String?        @db.Text
+  createdAt       DateTime       @default(now())
+
+  task            Task           @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  reviewer        User           @relation(fields: [reviewerId], references: [id], onDelete: Cascade)
+
+  @@index([taskId])
+  @@map("task_reviews")
+}
+
+model RecurrenceRule {
+  id              String         @id @default(uuid())
+  tenantId        String
+  frequency       String         @db.VarChar(20) // DAILY, WEEKDAYS, WEEKLY, MONTHLY, CUSTOM
+  intervalDays    Int            @default(1)
+  daysOfWeek      String?        @db.VarChar(50) // "1,2,3,4,5"
+  dayOfMonth      Int?
+  startDate       DateTime
+  endDate         DateTime?
+  titleTemplate   String         @db.VarChar(255)
+  description     String?        @db.Text
+  priority        String         @default("NORMAL") @db.VarChar(20)
+  branchId        String?
+  teamId          String?
+  isActive        Boolean        @default(true)
+  lastRunAt       DateTime?
+  nextRunAt       DateTime?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  tenant          Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tasks           Task[]
+
+  @@index([tenantId, isActive])
+  @@map("recurrence_rules")
+}
+
+// -------------------------------------------------------------
+// Notifications, Auditing & SaaS Subscriptions
+// -------------------------------------------------------------
+
+model Notification {
+  id              String         @id @default(uuid())
+  tenantId        String
+  userId          String
+  title           String         @db.VarChar(255)
+  message         String         @db.Text
+  type            String         @db.VarChar(50) // TASK_ASSIGNED, TASK_DUE, TASK_OVERDUE, TASK_SUBMITTED, TASK_REVIEWED, DEPENDENCY_UNBLOCKED
+  entityType      String?        @db.VarChar(50) // task, branch, team
+  entityId        String?        @db.VarChar(191)
+  isRead          Boolean        @default(false)
+  readAt          DateTime?
+  createdAt       DateTime       @default(now())
+
+  tenant          Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user            User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, userId, isRead])
+  @@index([userId, createdAt])
+  @@map("notifications")
+}
+
+model AuditLog {
+  id              String         @id @default(uuid())
+  tenantId        String?
+  userId          String?
+  action          String         @db.VarChar(100)
+  resourceType    String         @db.VarChar(100)
+  resourceId      String?        @db.VarChar(191)
+  ipAddress       String?        @db.VarChar(50)
+  details         String?        @db.Text // JSON
+  createdAt       DateTime       @default(now())
+
+  tenant          Tenant?        @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  user            User?          @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, createdAt])
+  @@map("audit_logs")
+}
+
+model Plan {
+  id              String         @id @default(uuid())
+  code            String         @unique @db.VarChar(50) // starter, business, growth, enterprise
+  name            String         @db.VarChar(100)
+  priceMonthly    Int            @default(0) // in INR paise or rupees (e.g. 499)
+  maxUsers        Int            @default(5)
+  maxBranches     Int            @default(1)
+  featuresJson    String?        @db.Text
+  isActive        Boolean        @default(true)
+  createdAt       DateTime       @default(now())
+
+  subscriptions   Subscription[]
+
+  @@map("plans")
+}
+
+model Subscription {
+  id              String         @id @default(uuid())
+  tenantId        String
+  planId          String
+  status          String         @default("ACTIVE") @db.VarChar(30) // ACTIVE, TRIALING, PAST_DUE, CANCELLED
+  startDate       DateTime       @default(now())
+  endDate         DateTime?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  tenant          Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  plan            Plan           @relation(fields: [planId], references: [id])
+
+  @@index([tenantId])
+  @@map("subscriptions")
+}
