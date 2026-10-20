@@ -32,8 +32,9 @@ class ApiClient {
 
   async request(endpoint, options = {}) {
     const url = `${API_BASE_URL}${endpoint}`;
+    const isFormData = typeof FormData !== 'undefined' && options.body instanceof FormData;
     const headers = {
-      'Content-Type': 'application/json',
+      ...(!isFormData && { 'Content-Type': 'application/json' }),
       ...options.headers,
     };
 
@@ -191,6 +192,36 @@ class ApiClient {
 
   getTaskActivity(id) {
     return this.request(`/tasks/${id}/activity`);
+  }
+
+  // Evidence Proof & Reviews
+  uploadTaskEvidence(id, dataOrFormData) {
+    const isFormData = typeof FormData !== 'undefined' && dataOrFormData instanceof FormData;
+    return this.request(`/tasks/${id}/evidence`, {
+      method: 'POST',
+      body: isFormData ? dataOrFormData : JSON.stringify(dataOrFormData),
+    });
+  }
+
+  getTaskEvidence(id) {
+    return this.request(`/tasks/${id}/evidence`);
+  }
+
+  deleteTaskEvidence(id, evidenceId) {
+    return this.request(`/tasks/${id}/evidence/${evidenceId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  submitTaskReview(id, data) {
+    return this.request(`/tasks/${id}/reviews`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  getTaskReviews(id) {
+    return this.request(`/tasks/${id}/reviews`);
   }
 
   // Branches & Teams & Members

@@ -13,6 +13,7 @@ import {
   Building2,
   ChevronRight,
   ListChecks,
+  Camera,
 } from 'lucide-react';
 import PriorityBadge from '@/components/PriorityBadge';
 import StatusBadge from '@/components/StatusBadge';
@@ -44,10 +45,22 @@ export default function MyTasksPage() {
     loadMyTasks();
   }, [loadMyTasks]);
 
-  const handleStatusChange = async (taskId, newStatus) => {
-    setUpdatingId(taskId);
+  const handleStatusChange = async (targetTask, newStatus) => {
+    if (
+      newStatus === 'SUBMITTED' &&
+      targetTask.requiresProof &&
+      (!targetTask._count?.evidence || targetTask._count.evidence === 0)
+    ) {
+      alert(
+        `Proof of execution is required before submitting "${targetTask.title}". Opening task detail to upload evidence.`
+      );
+      window.location.href = `/dashboard/tasks/${targetTask.id}`;
+      return;
+    }
+
+    setUpdatingId(targetTask.id);
     try {
-      const res = await api.updateTaskStatus(taskId, newStatus);
+      const res = await api.updateTaskStatus(targetTask.id, newStatus);
       if (res.success) {
         await loadMyTasks();
       }
@@ -208,6 +221,12 @@ export default function MyTasksPage() {
                           {completedChecklists}/{totalChecklists} Checklist
                         </span>
                       )}
+                      {task.requiresProof && (
+                        <span className="flex items-center gap-1 text-[#7F5D99] font-medium bg-[#FAF6FD] px-2 py-0.5 rounded border border-[#E8DFED]">
+                          <Camera className="w-3.5 h-3.5" />
+                          Proof Required ({task._count?.evidence || 0})
+                        </span>
+                      )}
                     </div>
                   </div>
 
@@ -215,7 +234,7 @@ export default function MyTasksPage() {
                   <div className="flex items-center gap-2 sm:self-center shrink-0">
                     {task.status === 'PENDING' && (
                       <button
-                        onClick={() => handleStatusChange(task.id, 'IN_PROGRESS')}
+                        onClick={() => handleStatusChange(task, 'IN_PROGRESS')}
                         disabled={updatingId === task.id}
                         className="px-3 py-1.5 rounded-xl bg-[#7F5D99] hover:bg-[#4C2365] text-white font-bold text-xs flex items-center gap-1 shadow-2xs cursor-pointer disabled:opacity-50"
                       >
@@ -226,7 +245,7 @@ export default function MyTasksPage() {
 
                     {task.status === 'IN_PROGRESS' && (
                       <button
-                        onClick={() => handleStatusChange(task.id, 'SUBMITTED')}
+                        onClick={() => handleStatusChange(task, 'SUBMITTED')}
                         disabled={updatingId === task.id}
                         className="px-3 py-1.5 rounded-xl bg-[#4C2365] hover:bg-[#321743] text-white font-bold text-xs flex items-center gap-1 shadow-2xs cursor-pointer disabled:opacity-50"
                       >

@@ -5,6 +5,8 @@ const { authenticate } = require('../../middleware/auth');
 const { resolveTenant, requirePermission } = require('../../middleware/tenant');
 const validate = require('../../middleware/validate');
 
+const { uploadEvidence } = require('../../middleware/upload');
+
 const router = express.Router();
 
 router.use(authenticate);
@@ -72,6 +74,13 @@ const addCommentSchema = z.object({
   }),
 });
 
+const reviewSchema = z.object({
+  body: z.object({
+    decision: z.enum(['APPROVED', 'CHANGES_REQUESTED']),
+    feedback: z.string().optional(),
+  }),
+});
+
 // Collection routes
 router.get('/', (req, res, next) => tasksController.getTasks(req, res, next));
 router.get('/my-tasks', (req, res, next) => tasksController.getMyTasks(req, res, next));
@@ -112,5 +121,27 @@ router.post('/:id/comments', validate(addCommentSchema), (req, res, next) =>
 );
 router.get('/:id/comments', (req, res, next) => tasksController.getComments(req, res, next));
 router.get('/:id/activity', (req, res, next) => tasksController.getActivityLogs(req, res, next));
+
+// Evidence & Proof of Execution
+router.post(
+  '/:id/evidence',
+  (req, res, next) => {
+    uploadEvidence.single('file')(req, res, (err) => {
+      if (err) return next(err);
+      next();
+    });
+  },
+  (req, res, next) => tasksController.uploadEvidence(req, res, next)
+);
+router.get('/:id/evidence', (req, res, next) => tasksController.getEvidence(req, res, next));
+router.delete('/:id/evidence/:evidenceId', (req, res, next) =>
+  tasksController.deleteEvidence(req, res, next)
+);
+
+// Reviews & Approvals
+router.post('/:id/reviews', validate(reviewSchema), (req, res, next) =>
+  tasksController.submitReview(req, res, next)
+);
+router.get('/:id/reviews', (req, res, next) => tasksController.getReviews(req, res, next));
 
 module.exports = router;

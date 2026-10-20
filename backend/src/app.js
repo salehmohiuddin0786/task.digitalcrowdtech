@@ -18,10 +18,15 @@ const tenantRoutes = require('./modules/tenants/tenants.routes');
 const roleRoutes = require('./modules/roles/roles.routes');
 const invitationRoutes = require('./modules/invitations/invitations.routes');
 
+const path = require('path');
 const app = express();
 
 // Security and utility middleware
-app.use(helmet());
+app.use(
+  helmet({
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
+  })
+);
 app.use(
   cors({
     origin: (origin, callback) => {
@@ -39,6 +44,9 @@ app.use(
 app.use(cookieParser());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Serve uploaded proof and evidence files
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 if (env.NODE_ENV === 'development') {
   app.use(morgan('dev'));

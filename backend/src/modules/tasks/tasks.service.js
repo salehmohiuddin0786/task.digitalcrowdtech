@@ -277,6 +277,7 @@ class TasksService {
             prerequisiteTask: true,
           },
         },
+        evidence: true,
       },
     });
 
@@ -291,6 +292,44 @@ class TasksService {
       const error = new Error('Employees can only submit tasks for review. Approval requires a Manager or Owner.');
       error.statusCode = 403;
       throw error;
+    }
+
+    // Proof of Execution check if submitting or completing a task that requires proof
+    if (['SUBMITTED', 'COMPLETED'].includes(newStatus) && task.requiresProof) {
+      const evidence = task.evidence || [];
+      if (evidence.length === 0) {
+        const error = new Error(
+          'Proof of execution is required. Please upload required evidence before submitting or completing this task.'
+        );
+        error.statusCode = 422;
+        throw error;
+      }
+
+      if (task.proofType === 'PHOTO') {
+        const hasPhoto = evidence.some((e) => e.fileType === 'PHOTO');
+        if (!hasPhoto) {
+          const error = new Error('Photo proof of execution is required before this task can be submitted.');
+          error.statusCode = 422;
+          throw error;
+        }
+      } else if (task.proofType === 'VIDEO') {
+        const hasVideo = evidence.some((e) => e.fileType === 'VIDEO');
+        if (!hasVideo) {
+          const error = new Error('Video proof of execution is required before this task can be submitted.');
+          error.statusCode = 422;
+          throw error;
+        }
+      } else if (task.proofType === 'BOTH') {
+        const hasPhoto = evidence.some((e) => e.fileType === 'PHOTO');
+        const hasVideo = evidence.some((e) => e.fileType === 'VIDEO');
+        if (!hasPhoto || !hasVideo) {
+          const error = new Error(
+            'Both photo and video proof of execution are required before this task can be submitted.'
+          );
+          error.statusCode = 422;
+          throw error;
+        }
+      }
     }
 
     // Check prerequisites if moving into IN_PROGRESS or COMPLETED
@@ -644,6 +683,201 @@ class TasksService {
       include: {
         user: { select: { id: true, fullName: true } },
       },
+    });
+  }
+
+  async addEvidence(taskId, tenantId, userId, data) {
+    const task = await prisma.task.findFirst({
+      where: { id: taskId, tenantId },
+    });
+    if (!task) {
+      const error = new Error('Task not found');
+      error.statusCode = 404;
+      throw error;
+    }
+
+    const { fileType = 'PHOTO', fileName, fileUrl, fileSize = 0, mimeType = 'image/jpeg', caption } = data;
+
+    const evidence = await prisma.$transaction(async (tx) => {
+      const item = await tx.taskEvidence.create({
+        data: {
+          taskId,
+          uploadedById: userId,
+          fileType,
+          fileName,
+          fileUrl,
+          fileSize: parseInt(fileSize, 10) || 0,
+          mimeType,
+          caption: caption?.trim() || null,
+        },
+      });
+
+      await tx.taskActivityLog.create({
+        data: {
+          taskId,
+          userId,
+          action: 'EVIDENCE_UPLOADED',
+          metadata: JSON.stringify({ fileName, fileType, caption }),
+        },
+      });
+
+      return item;
+    });
+
+    return evidence;
+  }
+
+  async getEvidence(taskId, tenantId) {
+    const task = await prisma.task.findFirst({
+      where: { id: taskId, tenantId },
+    });
+    if (!task) {
+      const error = new Error('Task not found');
+      error.statusCode = 404;
+      throw error;
+    }
+
+    return prisma.taskEvidence.findMany({
+      where: { taskId },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async deleteEvidence(taskId, tenantId, userId, role, evidenceId) {
+    const evidence = await prisma.taskEvidence.findFirst({
+      where: { id: evidenceId, taskId, task: { tenantId } },
+    });
+
+    if (!evidence) {
+      const error = new Error('Evidence item not found');
+      error.statusCode = 404;
+      throw error;
+    }
+
+    if (role === 'EMPLOYEE' && evidence.uploadedById !== userId) {
+      const error = new Error('You can only delete evidence uploaded by yourself.');
+      error.statusCode = 403;
+      throw error;
+    }
+
+    await prisma.$transaction(async (tx) => {
+      await tx.taskEvidence.delete({ where: { id: evidenceId } });
+
+      await tx.taskActivityLog.create({
+        data: {
+          taskId,
+          userId,
+          action: 'EVIDENCE_DELETED',
+          metadata: JSON.stringify({ fileName: evidence.fileName }),
+        },
+      });
+    });
+
+    return true;
+  }
+
+  async submitReview(taskId, tenantId, reviewerUser, role, data) {
+    if (role === 'EMPLOYEE') {
+      const error = new Error('Employees cannot review or approve tasks. A Manager or Owner is required.');
+      error.statusCode = 403;
+      throw error;
+    }
+
+    const { decision, feedback } = data;
+    if (!['APPROVED', 'CHANGES_REQUESTED'].includes(decision)) {
+      const error = new Error('Review decision must be either APPROVED or CHANGES_REQUESTED.');
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const task = await prisma.task.findFirst({
+      where: { id: taskId, tenantId },
+      include: {
+        assignments: {
+          include: {
+            user: { select: { id: true, fullName: true, email: true } },
+          },
+        },
+      },
+    });
+
+    if (!task) {
+      const error = new Error('Task not found');
+      error.statusCode = 404;
+      throw error;
+    }
+
+    const newStatus = decision === 'APPROVED' ? 'COMPLETED' : 'CHANGES_REQUESTED';
+
+    const review = await prisma.$transaction(async (tx) => {
+      const createdReview = await tx.taskReview.create({
+        data: {
+          taskId,
+          reviewerId: reviewerUser.id,
+          decision,
+          feedback: feedback?.trim() || null,
+        },
+        include: {
+          reviewer: { select: { id: true, fullName: true, email: true } },
+        },
+      });
+
+      await tx.task.update({
+        where: { id: taskId },
+        data: {
+          status: newStatus,
+          completedAt: newStatus === 'COMPLETED' ? new Date() : null,
+        },
+      });
+
+      await tx.taskActivityLog.create({
+        data: {
+          taskId,
+          userId: reviewerUser.id,
+          action: decision === 'APPROVED' ? 'APPROVED' : 'CHANGES_REQUESTED',
+          metadata: JSON.stringify({ decision, feedback }),
+        },
+      });
+
+      // Send notifications to assignees
+      for (const a of task.assignments) {
+        if (a.userId !== reviewerUser.id) {
+          await tx.notification.create({
+            data: {
+              tenantId,
+              userId: a.userId,
+              title:
+                decision === 'APPROVED'
+                  ? `Task Approved: ${task.title}`
+                  : `Changes Requested: ${task.title}`,
+              message:
+                decision === 'APPROVED'
+                  ? `Your task "${task.title}" has been approved by ${reviewerUser.fullName}.`
+                  : `Changes requested on "${task.title}": ${feedback || 'Please review supervisor comments.'}`,
+              type: decision === 'APPROVED' ? 'TASK_COMPLETED' : 'TASK_CHANGES_REQUESTED',
+              entityType: 'task',
+              entityId: taskId,
+            },
+          });
+        }
+      }
+
+      return createdReview;
+    });
+
+    return review;
+  }
+
+  async getReviews(taskId, tenantId) {
+    return prisma.taskReview.findMany({
+      where: {
+        taskId,
+        task: { tenantId },
+      },
+      include: {
+        reviewer: { select: { id: true, fullName: true, email: true } },
+      },
+      orderBy: { createdAt: 'desc' },
     });
   }
 }

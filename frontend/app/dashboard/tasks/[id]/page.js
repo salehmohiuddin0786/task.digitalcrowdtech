@@ -22,7 +22,15 @@ import {
   CheckSquare,
   History,
   XCircle,
-  HelpCircle,
+  Camera,
+  Video,
+  FileText,
+  UploadCloud,
+  Maximize2,
+  X,
+  ExternalLink,
+  Check,
+  AlertCircle,
 } from 'lucide-react';
 import PriorityBadge from '@/components/PriorityBadge';
 import StatusBadge from '@/components/StatusBadge';
@@ -59,15 +67,33 @@ function TaskDetailContent() {
   // Status updating
   const [statusUpdating, setStatusUpdating] = useState(false);
 
+  // Phase 4: Evidence & Proof
+  const [evidenceList, setEvidenceList] = useState([]);
+  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+  const [uploadFile, setUploadFile] = useState(null);
+  const [evidenceCaption, setEvidenceCaption] = useState('');
+  const [evidenceType, setEvidenceType] = useState('PHOTO');
+  const [uploadingEvidence, setUploadingEvidence] = useState(false);
+  const [activePreview, setActivePreview] = useState(null);
+
+  // Phase 4: Review Workflow
+  const [reviewsList, setReviewsList] = useState([]);
+  const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
+  const [reviewDecision, setReviewDecision] = useState('APPROVED');
+  const [reviewFeedback, setReviewFeedback] = useState('');
+  const [submittingReview, setSubmittingReview] = useState(false);
+
   const loadTaskData = useCallback(async () => {
     if (!taskId) return;
     setLoading(true);
     setError(null);
     try {
-      const [taskRes, commentsRes, activityRes] = await Promise.all([
+      const [taskRes, commentsRes, activityRes, evidenceRes, reviewsRes] = await Promise.all([
         api.getTaskById(taskId),
         api.getTaskComments(taskId).catch(() => ({ data: [] })),
         api.getTaskActivity(taskId).catch(() => ({ data: [] })),
+        api.getTaskEvidence(taskId).catch(() => ({ data: [] })),
+        api.getTaskReviews(taskId).catch(() => ({ data: [] })),
       ]);
 
       if (taskRes.success && taskRes.data) {
@@ -82,6 +108,14 @@ function TaskDetailContent() {
 
       if (activityRes.success && activityRes.data) {
         setActivities(activityRes.data);
+      }
+
+      if (evidenceRes.success && evidenceRes.data) {
+        setEvidenceList(evidenceRes.data);
+      }
+
+      if (reviewsRes.success && reviewsRes.data) {
+        setReviewsList(reviewsRes.data);
       }
     } catch (err) {
       setError(err.message || 'Error loading task details');
@@ -105,6 +139,13 @@ function TaskDetailContent() {
   }, []);
 
   const handleStatusChange = async (newStatus) => {
+    // Check proof requirement client-side to prompt user nicely
+    if (['SUBMITTED', 'COMPLETED'].includes(newStatus) && task.requiresProof && evidenceList.length === 0) {
+      alert(`Proof of execution (${task.proofType || 'PHOTO/VIDEO'}) is required before this task can be submitted. Please upload evidence first.`);
+      setIsUploadModalOpen(true);
+      return;
+    }
+
     setStatusUpdating(true);
     try {
       const res = await api.updateTaskStatus(taskId, newStatus);
@@ -206,6 +247,72 @@ function TaskDetailContent() {
     }
   };
 
+  // Phase 4: Handle Evidence Upload
+  const handleUploadEvidence = async (e) => {
+    e.preventDefault();
+    if (!uploadFile) {
+      alert('Please select a photo, video, or file to upload.');
+      return;
+    }
+
+    setUploadingEvidence(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', uploadFile);
+      formData.append('fileType', evidenceType);
+      if (evidenceCaption) formData.append('caption', evidenceCaption.trim());
+
+      const res = await api.uploadTaskEvidence(taskId, formData);
+      if (res.success) {
+        setUploadFile(null);
+        setEvidenceCaption('');
+        setIsUploadModalOpen(false);
+        await loadTaskData();
+      }
+    } catch (err) {
+      alert(err.message || 'Evidence upload failed');
+    } finally {
+      setUploadingEvidence(false);
+    }
+  };
+
+  const handleDeleteEvidence = async (evidenceId) => {
+    if (!confirm('Delete this proof of execution item?')) return;
+    try {
+      await api.deleteTaskEvidence(taskId, evidenceId);
+      await loadTaskData();
+    } catch (err) {
+      alert(err.message || 'Failed to remove evidence');
+    }
+  };
+
+  // Phase 4: Handle Supervisor Review Submission
+  const handleSubmitReview = async (e) => {
+    e.preventDefault();
+    if (reviewDecision === 'CHANGES_REQUESTED' && !reviewFeedback.trim()) {
+      alert('Please provide detailed feedback explaining what changes are required.');
+      return;
+    }
+
+    setSubmittingReview(true);
+    try {
+      const res = await api.submitTaskReview(taskId, {
+        decision: reviewDecision,
+        feedback: reviewFeedback.trim() || undefined,
+      });
+
+      if (res.success) {
+        setIsReviewModalOpen(false);
+        setReviewFeedback('');
+        await loadTaskData();
+      }
+    } catch (err) {
+      alert(err.message || 'Failed to submit review');
+    } finally {
+      setSubmittingReview(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="p-12 text-center text-xs font-semibold text-[#6B6172]">
@@ -238,6 +345,7 @@ function TaskDetailContent() {
 
   const isEmployee = role === 'EMPLOYEE';
   const isManagerOrOwner = ['OWNER', 'BRANCH_MANAGER', 'SUPER_ADMIN'].includes(role);
+  const requiresProofMissing = task.requiresProof && evidenceList.length === 0;
 
   return (
     <div className="space-y-6">
@@ -294,24 +402,14 @@ function TaskDetailContent() {
           )}
 
           {task.status === 'SUBMITTED' && isManagerOrOwner && (
-            <>
-              <button
-                onClick={() => handleStatusChange('CHANGES_REQUESTED')}
-                disabled={statusUpdating}
-                className="px-3 py-2 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 font-bold text-xs flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-              >
-                <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
-                Request Changes
-              </button>
-              <button
-                onClick={() => handleStatusChange('COMPLETED')}
-                disabled={statusUpdating}
-                className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-xs cursor-pointer disabled:opacity-50"
-              >
-                <CheckCircle2 className="w-4 h-4" />
-                Approve & Complete
-              </button>
-            </>
+            <button
+              onClick={() => setIsReviewModalOpen(true)}
+              disabled={statusUpdating}
+              className="px-4 py-2 rounded-xl bg-gradient-to-r from-[#4C2365] to-[#7F5D99] hover:opacity-95 text-white font-bold text-xs flex items-center gap-1.5 shadow-md cursor-pointer disabled:opacity-50"
+            >
+              <ShieldCheck className="w-4 h-4 text-[#C4A4DA]" />
+              Conduct Supervisor Review
+            </button>
           )}
 
           {task.status === 'CHANGES_REQUESTED' && (
@@ -340,9 +438,32 @@ function TaskDetailContent() {
         </div>
       </div>
 
+      {/* Mandatory Proof Alert Banner */}
+      {requiresProofMissing && (
+        <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 flex items-start sm:items-center justify-between gap-3 shadow-xs">
+          <div className="flex items-center gap-3">
+            <AlertCircle className="w-5 h-5 text-amber-600 shrink-0" />
+            <div>
+              <h4 className="text-xs font-bold text-amber-900">
+                Proof of Execution Required ({task.proofType || 'PHOTO / VIDEO'})
+              </h4>
+              <p className="text-[11px] text-amber-700">
+                This task cannot be submitted or approved until photographic or video evidence is attached.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => setIsUploadModalOpen(true)}
+            className="px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs shrink-0 cursor-pointer"
+          >
+            Upload Now
+          </button>
+        </div>
+      )}
+
       {/* Main Grid: Left Details & Right Metadata Panel */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
-        {/* Left Column (2 Cols): Description, Checklists, Comments */}
+        {/* Left Column (2 Cols): Description, Evidence Gallery, Checklists, Comments */}
         <div className="lg:col-span-2 space-y-6">
           {/* Description Section */}
           <div className="p-5 sm:p-6 rounded-3xl bg-white border border-[#E8DFED] shadow-xs space-y-3">
@@ -354,20 +475,165 @@ function TaskDetailContent() {
                 <span className="italic text-[#6B6172]">No description provided for this task.</span>
               )}
             </div>
+          </div>
 
-            {task.requiresProof && (
-              <div className="p-3 rounded-2xl bg-[#FAF6FD] border border-[#E8DFED] flex items-center gap-3 mt-4">
-                <FileCheck2 className="w-5 h-5 text-[#7F5D99] shrink-0" />
-                <div>
-                  <h4 className="text-xs font-bold text-[#4C2365]">Proof of Execution Required</h4>
-                  <p className="text-[11px] text-[#6B6172]">
-                    Submission requires uploading evidence ({task.proofType || 'PHOTO / VIDEO'})
-                    before final approval.
-                  </p>
-                </div>
+          {/* Phase 4: Proof of Execution & Evidence Gallery */}
+          <div className="p-5 sm:p-6 rounded-3xl bg-white border border-[#E8DFED] shadow-xs space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-[#E8DFED]">
+              <div className="flex items-center gap-2">
+                <Camera className="w-4 h-4 text-[#7F5D99]" />
+                <h3 className="text-xs font-bold text-[#4C2365] uppercase tracking-wider">
+                  Proof of Execution & Evidence ({evidenceList.length})
+                </h3>
+              </div>
+              <button
+                onClick={() => setIsUploadModalOpen(true)}
+                className="px-3 py-1.5 rounded-xl bg-[#7F5D99] hover:bg-[#4C2365] text-white font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <UploadCloud className="w-3.5 h-3.5" />
+                Upload Evidence
+              </button>
+            </div>
+
+            {/* Evidence Items Grid */}
+            {evidenceList.length === 0 ? (
+              <div className="p-8 text-center border border-dashed border-[#E8DFED] rounded-2xl bg-[#FAF6FD]/30">
+                <Camera className="w-8 h-8 text-[#C4A4DA] mx-auto mb-2 opacity-60" />
+                <p className="text-xs font-bold text-[#251A2D]">No evidence uploaded yet</p>
+                <p className="text-[11px] text-[#6B6172] mt-0.5">
+                  Attach photos, video recordings, or documents verifying task completion.
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                {evidenceList.map((item) => {
+                  const isImage = item.fileType === 'PHOTO' || item.mimeType?.startsWith('image/');
+                  const isVideo = item.fileType === 'VIDEO' || item.mimeType?.startsWith('video/');
+
+                  return (
+                    <div
+                      key={item.id}
+                      className="p-3 rounded-2xl bg-[#FAF6FD]/60 border border-[#E8DFED] hover:border-[#9E7EB5] transition-all space-y-2 group relative flex flex-col justify-between"
+                    >
+                      <div
+                        onClick={() => setActivePreview(item)}
+                        className="w-full h-32 rounded-xl bg-[#F0E6F6] flex items-center justify-center overflow-hidden cursor-pointer relative group-hover:opacity-90"
+                      >
+                        {isImage ? (
+                          <img
+                            src={item.fileUrl}
+                            alt={item.caption || item.fileName}
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              e.target.style.display = 'none';
+                            }}
+                          />
+                        ) : isVideo ? (
+                          <div className="flex flex-col items-center text-[#7F5D99]">
+                            <Video className="w-8 h-8 mb-1" />
+                            <span className="text-[10px] font-bold">Video Recording</span>
+                          </div>
+                        ) : (
+                          <div className="flex flex-col items-center text-[#7F5D99]">
+                            <FileText className="w-8 h-8 mb-1" />
+                            <span className="text-[10px] font-bold">Document</span>
+                          </div>
+                        )}
+                        <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity text-white">
+                          <Maximize2 className="w-5 h-5" />
+                        </div>
+                      </div>
+
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between text-[10px]">
+                          <span className="font-bold text-[#7F5D99] uppercase tracking-wider bg-white px-1.5 py-0.5 rounded border border-[#E8DFED]">
+                            {item.fileType}
+                          </span>
+                          <span className="text-[#6B6172]">
+                            {item.fileSize ? `${Math.round(item.fileSize / 1024)} KB` : ''}
+                          </span>
+                        </div>
+                        {item.caption && (
+                          <p className="text-xs font-semibold text-[#251A2D] line-clamp-2">
+                            {item.caption}
+                          </p>
+                        )}
+                        <p className="text-[10px] text-[#6B6172] truncate">{item.fileName}</p>
+                      </div>
+
+                      <div className="pt-2 border-t border-[#E8DFED] flex items-center justify-between">
+                        <span className="text-[9px] text-[#6B6172]">
+                          {new Date(item.createdAt).toLocaleDateString()}
+                        </span>
+                        {(isManagerOrOwner || item.uploadedById === user?.id) && (
+                          <button
+                            onClick={() => handleDeleteEvidence(item.id)}
+                            className="text-rose-600 hover:text-rose-800 p-1 text-[11px] cursor-pointer"
+                            title="Delete evidence"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
+
+          {/* Phase 4: Supervisor Review History Timeline */}
+          {reviewsList.length > 0 && (
+            <div className="p-5 sm:p-6 rounded-3xl bg-white border border-[#E8DFED] shadow-xs space-y-4">
+              <div className="flex items-center gap-2 pb-3 border-b border-[#E8DFED]">
+                <ShieldCheck className="w-4 h-4 text-[#7F5D99]" />
+                <h3 className="text-xs font-bold text-[#4C2365] uppercase tracking-wider">
+                  Supervisor Review History ({reviewsList.length})
+                </h3>
+              </div>
+
+              <div className="space-y-3">
+                {reviewsList.map((rev) => {
+                  const isApproved = rev.decision === 'APPROVED';
+                  return (
+                    <div
+                      key={rev.id}
+                      className={`p-4 rounded-2xl border ${
+                        isApproved
+                          ? 'bg-emerald-50/60 border-emerald-200'
+                          : 'bg-amber-50/60 border-amber-200'
+                      } space-y-2`}
+                    >
+                      <div className="flex items-center justify-between text-xs">
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={`px-2 py-0.5 rounded-md font-bold text-[10px] uppercase tracking-wider ${
+                              isApproved
+                                ? 'bg-emerald-600 text-white'
+                                : 'bg-amber-600 text-white'
+                            }`}
+                          >
+                            {isApproved ? 'Approved' : 'Changes Requested'}
+                          </span>
+                          <span className="font-bold text-[#251A2D]">
+                            {rev.reviewer?.fullName || 'Supervisor'}
+                          </span>
+                        </div>
+                        <span className="text-[10px] text-[#6B6172]">
+                          {new Date(rev.createdAt).toLocaleString()}
+                        </span>
+                      </div>
+                      {rev.feedback && (
+                        <p className="text-xs text-[#251A2D] italic bg-white/70 p-2.5 rounded-xl border border-black/5 leading-relaxed">
+                          "{rev.feedback}"
+                        </p>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Checklists Section */}
           <div className="p-5 sm:p-6 rounded-3xl bg-white border border-[#E8DFED] shadow-xs space-y-4">
@@ -462,8 +728,7 @@ function TaskDetailContent() {
               </h3>
             </div>
 
-            {/* Comments Stream */}
-            <div className="space-y-3 max-h-[400px] overflow-y-auto">
+            <div className="space-y-3 max-h-[380px] overflow-y-auto">
               {comments.length === 0 ? (
                 <p className="text-xs text-[#6B6172] italic py-2">
                   No comments posted yet. Leave an update or question for the team.
@@ -499,7 +764,6 @@ function TaskDetailContent() {
               )}
             </div>
 
-            {/* Post Comment Input */}
             <form onSubmit={handleAddComment} className="flex gap-2 pt-2">
               <input
                 type="text"
@@ -520,7 +784,7 @@ function TaskDetailContent() {
           </div>
         </div>
 
-        {/* Right Column (1 Col): Assignees, Metadata, Audit Log */}
+        {/* Right Column (1 Col): Assignees, Properties, Audit Log */}
         <div className="space-y-6">
           {/* Assignees Card */}
           <div className="p-5 rounded-3xl bg-white border border-[#E8DFED] shadow-xs space-y-4">
@@ -565,7 +829,6 @@ function TaskDetailContent() {
               )}
             </div>
 
-            {/* Assign Member Dropdown for Managers */}
             {isManagerOrOwner && (
               <div className="pt-2 border-t border-[#E8DFED] flex gap-2">
                 <select
@@ -595,7 +858,7 @@ function TaskDetailContent() {
             )}
           </div>
 
-          {/* Metadata Card */}
+          {/* Properties Card */}
           <div className="p-5 rounded-3xl bg-white border border-[#E8DFED] shadow-xs space-y-3.5">
             <h3 className="text-xs font-bold text-[#4C2365] uppercase tracking-wider pb-2 border-b border-[#E8DFED]">
               Task Properties
@@ -631,6 +894,13 @@ function TaskDetailContent() {
               </div>
 
               <div className="flex items-center justify-between">
+                <span className="text-[#6B6172]">Proof Required</span>
+                <span className="font-bold text-[#7F5D99]">
+                  {task.requiresProof ? task.proofType || 'YES' : 'Optional'}
+                </span>
+              </div>
+
+              <div className="flex items-center justify-between">
                 <span className="text-[#6B6172]">Created By</span>
                 <span className="font-medium text-[#251A2D]">
                   {task.createdBy?.fullName || 'System'}
@@ -646,7 +916,7 @@ function TaskDetailContent() {
             </div>
           </div>
 
-          {/* Activity / Audit Timeline */}
+          {/* Audit Timeline */}
           <div className="p-5 rounded-3xl bg-white border border-[#E8DFED] shadow-xs space-y-3">
             <div className="flex items-center gap-2 pb-2 border-b border-[#E8DFED]">
               <History className="w-4 h-4 text-[#7F5D99]" />
@@ -680,6 +950,258 @@ function TaskDetailContent() {
           </div>
         </div>
       </div>
+
+      {/* MODAL 1: Upload Evidence Modal */}
+      {isUploadModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+          <div className="bg-white rounded-3xl border border-[#E8DFED] shadow-xl max-w-md w-full p-6 space-y-5">
+            <div className="flex items-center justify-between pb-3 border-b border-[#E8DFED]">
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-xl bg-[#FAF6FD] text-[#7F5D99]">
+                  <UploadCloud className="w-5 h-5" />
+                </div>
+                <h3 className="text-sm font-bold text-[#4C2365]">Upload Proof of Execution</h3>
+              </div>
+              <button
+                onClick={() => setIsUploadModalOpen(false)}
+                className="p-1.5 rounded-lg text-[#6B6172] hover:bg-[#FAF6FD] cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleUploadEvidence} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-[#4C2365] mb-1.5">
+                  Evidence File Type
+                </label>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { key: 'PHOTO', label: 'Photo', icon: Camera },
+                    { key: 'VIDEO', label: 'Video', icon: Video },
+                    { key: 'DOCUMENT', label: 'Document', icon: FileText },
+                  ].map((t) => {
+                    const Icon = t.icon;
+                    return (
+                      <button
+                        type="button"
+                        key={t.key}
+                        onClick={() => setEvidenceType(t.key)}
+                        className={`p-2.5 rounded-xl border text-xs font-bold flex flex-col items-center gap-1 cursor-pointer transition-all ${
+                          evidenceType === t.key
+                            ? 'bg-[#7F5D99] text-white border-[#7F5D99]'
+                            : 'bg-white text-[#6B6172] border-[#E8DFED] hover:bg-[#FAF6FD]'
+                        }`}
+                      >
+                        <Icon className="w-4 h-4" />
+                        {t.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-[#4C2365] mb-1.5">
+                  Select File / Camera Capture
+                </label>
+                <input
+                  type="file"
+                  accept={
+                    evidenceType === 'PHOTO'
+                      ? 'image/*'
+                      : evidenceType === 'VIDEO'
+                      ? 'video/*'
+                      : 'application/pdf,image/*'
+                  }
+                  onChange={(e) => setUploadFile(e.target.files[0] || null)}
+                  className="w-full text-xs text-[#251A2D] file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-[#FAF6FD] file:text-[#7F5D99] hover:file:bg-[#E8DFED] border border-[#E8DFED] rounded-xl p-1 cursor-pointer"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-[#4C2365] mb-1.5">
+                  Caption / Verification Note
+                </label>
+                <input
+                  type="text"
+                  value={evidenceCaption}
+                  onChange={(e) => setEvidenceCaption(e.target.value)}
+                  placeholder="e.g. Counter wiped and disinfected at 4:30 PM..."
+                  className="w-full px-3.5 py-2 text-xs rounded-xl border border-[#E8DFED] focus:outline-hidden focus:ring-2 focus:ring-[#7F5D99]"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-[#E8DFED]">
+                <button
+                  type="button"
+                  onClick={() => setIsUploadModalOpen(false)}
+                  className="px-4 py-2 rounded-xl text-xs font-bold text-[#6B6172] hover:bg-[#FAF6FD] cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={uploadingEvidence || !uploadFile}
+                  className="px-4 py-2 rounded-xl bg-[#7F5D99] hover:bg-[#4C2365] text-white font-bold text-xs flex items-center gap-1.5 shadow-md cursor-pointer disabled:opacity-50"
+                >
+                  <UploadCloud className="w-3.5 h-3.5" />
+                  {uploadingEvidence ? 'Uploading...' : 'Upload Evidence'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 2: Supervisor Review Decision Modal */}
+      {isReviewModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+          <div className="bg-white rounded-3xl border border-[#E8DFED] shadow-xl max-w-md w-full p-6 space-y-5">
+            <div className="flex items-center justify-between pb-3 border-b border-[#E8DFED]">
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-xl bg-[#FAF6FD] text-[#7F5D99]">
+                  <ShieldCheck className="w-5 h-5" />
+                </div>
+                <h3 className="text-sm font-bold text-[#4C2365]">Conduct Task Review</h3>
+              </div>
+              <button
+                onClick={() => setIsReviewModalOpen(false)}
+                className="p-1.5 rounded-lg text-[#6B6172] hover:bg-[#FAF6FD] cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmitReview} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-[#4C2365] mb-2">
+                  Review Decision
+                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setReviewDecision('APPROVED')}
+                    className={`p-3 rounded-2xl border text-xs font-bold flex flex-col items-center gap-1 cursor-pointer transition-all ${
+                      reviewDecision === 'APPROVED'
+                        ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
+                        : 'bg-white text-[#251A2D] border-[#E8DFED] hover:bg-emerald-50/50'
+                    }`}
+                  >
+                    <CheckCircle2 className="w-5 h-5" />
+                    Approve & Complete
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setReviewDecision('CHANGES_REQUESTED')}
+                    className={`p-3 rounded-2xl border text-xs font-bold flex flex-col items-center gap-1 cursor-pointer transition-all ${
+                      reviewDecision === 'CHANGES_REQUESTED'
+                        ? 'bg-amber-600 text-white border-amber-600 shadow-xs'
+                        : 'bg-white text-[#251A2D] border-[#E8DFED] hover:bg-amber-50/50'
+                    }`}
+                  >
+                    <AlertTriangle className="w-5 h-5" />
+                    Request Changes
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-[#4C2365] mb-1.5">
+                  Supervisor Feedback & Instructions{' '}
+                  {reviewDecision === 'CHANGES_REQUESTED' && (
+                    <span className="text-rose-600">*</span>
+                  )}
+                </label>
+                <textarea
+                  rows={3}
+                  value={reviewFeedback}
+                  onChange={(e) => setReviewFeedback(e.target.value)}
+                  placeholder={
+                    reviewDecision === 'APPROVED'
+                      ? 'Optional praise or confirmation note...'
+                      : 'Specify what requires rectification before approval...'
+                  }
+                  required={reviewDecision === 'CHANGES_REQUESTED'}
+                  className="w-full px-3.5 py-2 text-xs rounded-xl border border-[#E8DFED] focus:outline-hidden focus:ring-2 focus:ring-[#7F5D99]"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-[#E8DFED]">
+                <button
+                  type="button"
+                  onClick={() => setIsReviewModalOpen(false)}
+                  className="px-4 py-2 rounded-xl text-xs font-bold text-[#6B6172] hover:bg-[#FAF6FD] cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={submittingReview}
+                  className="px-4 py-2 rounded-xl bg-[#7F5D99] hover:bg-[#4C2365] text-white font-bold text-xs flex items-center gap-1.5 shadow-md cursor-pointer disabled:opacity-50"
+                >
+                  <Check className="w-3.5 h-3.5" />
+                  {submittingReview ? 'Submitting...' : 'Confirm Decision'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 3: Lightbox Evidence Preview */}
+      {activePreview && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+          <div className="max-w-3xl w-full bg-white rounded-3xl overflow-hidden shadow-2xl border border-white/20">
+            <div className="p-4 bg-[#4C2365] text-white flex items-center justify-between">
+              <div>
+                <h4 className="text-xs font-bold tracking-tight">{activePreview.fileName}</h4>
+                {activePreview.caption && (
+                  <p className="text-[11px] text-[#C4A4DA]">{activePreview.caption}</p>
+                )}
+              </div>
+              <button
+                onClick={() => setActivePreview(null)}
+                className="p-1.5 rounded-lg text-white/80 hover:text-white hover:bg-white/10 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-4 bg-black flex items-center justify-center max-h-[70vh] overflow-hidden">
+              {activePreview.fileType === 'PHOTO' || activePreview.mimeType?.startsWith('image/') ? (
+                <img
+                  src={activePreview.fileUrl}
+                  alt={activePreview.caption || activePreview.fileName}
+                  className="max-h-[65vh] w-auto object-contain mx-auto rounded-lg"
+                />
+              ) : activePreview.fileType === 'VIDEO' || activePreview.mimeType?.startsWith('video/') ? (
+                <video
+                  src={activePreview.fileUrl}
+                  controls
+                  autoPlay
+                  className="max-h-[65vh] w-full object-contain mx-auto rounded-lg"
+                />
+              ) : (
+                <div className="p-12 text-center text-white space-y-3">
+                  <FileText className="w-16 h-16 text-[#C4A4DA] mx-auto opacity-80" />
+                  <p className="text-sm font-semibold">{activePreview.fileName}</p>
+                  <a
+                    href={activePreview.fileUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#7F5D99] text-white text-xs font-bold"
+                  >
+                    Open Document
+                    <ExternalLink className="w-3.5 h-3.5" />
+                  </a>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

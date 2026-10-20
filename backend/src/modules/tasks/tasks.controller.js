@@ -152,6 +152,93 @@ class TasksController {
       next(error);
     }
   }
+
+  async uploadEvidence(req, res, next) {
+    try {
+      let fileData = {};
+      if (req.file) {
+        let detectedType = 'DOCUMENT';
+        if (req.file.mimetype.startsWith('image/')) detectedType = 'PHOTO';
+        else if (req.file.mimetype.startsWith('video/')) detectedType = 'VIDEO';
+
+        fileData = {
+          fileName: req.file.originalname,
+          fileUrl: `/uploads/evidence/${req.file.filename}`,
+          fileSize: req.file.size,
+          mimeType: req.file.mimetype,
+          fileType: req.body.fileType || detectedType,
+          caption: req.body.caption,
+        };
+      } else {
+        fileData = {
+          fileName: req.body.fileName || 'evidence-file',
+          fileUrl: req.body.fileUrl || '/uploads/evidence/sample-evidence.jpg',
+          fileSize: req.body.fileSize || 1024,
+          mimeType: req.body.mimeType || 'image/jpeg',
+          fileType: req.body.fileType || 'PHOTO',
+          caption: req.body.caption,
+        };
+      }
+
+      const evidence = await tasksService.addEvidence(
+        req.params.id,
+        req.tenant.id,
+        req.user.id,
+        fileData
+      );
+      return apiSuccess(res, evidence, 'Evidence proof uploaded successfully.', 201);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async getEvidence(req, res, next) {
+    try {
+      const evidence = await tasksService.getEvidence(req.params.id, req.tenant.id);
+      return apiSuccess(res, evidence, 'Task evidence items retrieved.');
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async deleteEvidence(req, res, next) {
+    try {
+      await tasksService.deleteEvidence(
+        req.params.id,
+        req.tenant.id,
+        req.user.id,
+        req.role,
+        req.params.evidenceId
+      );
+      return apiSuccess(res, null, 'Evidence item removed.');
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async submitReview(req, res, next) {
+    try {
+      const review = await tasksService.submitReview(
+        req.params.id,
+        req.tenant.id,
+        req.user,
+        req.role,
+        req.body
+      );
+      return apiSuccess(res, review, 'Task review recorded successfully.', 201);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async getReviews(req, res, next) {
+    try {
+      const reviews = await tasksService.getReviews(req.params.id, req.tenant.id);
+      return apiSuccess(res, reviews, 'Task review history retrieved.');
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 module.exports = new TasksController();
