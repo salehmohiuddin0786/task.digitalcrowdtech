@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard,
   CheckSquare,
+  ListTodo,
   KanbanSquare,
   Building2,
   Users2,
@@ -24,6 +25,7 @@ export default function Sidebar({ isOpen, onClose }) {
 
   const navItems = [
     { label: 'Overview', href: '/dashboard', icon: LayoutDashboard },
+    { label: 'My Tasks', href: '/dashboard/my-tasks', icon: ListTodo },
     { label: 'Task Explorer', href: '/dashboard/tasks', icon: CheckSquare },
     { label: 'Kanban Board', href: '/dashboard/board', icon: KanbanSquare },
     { label: 'Branches', href: '/dashboard/branches', icon: Building2 },

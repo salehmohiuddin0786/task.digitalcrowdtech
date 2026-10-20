@@ -332,6 +332,320 @@ class TasksService {
 
     return updated;
   }
+
+  async updateTask(taskId, tenantId, userId, data) {
+    const task = await prisma.task.findFirst({
+      where: { id: taskId, tenantId },
+    });
+
+    if (!task) {
+      const error = new Error('Task not found');
+      error.statusCode = 404;
+      throw error;
+    }
+
+    const {
+      title,
+      description,
+      priority,
+      category,
+      branchId,
+      teamId,
+      dueDate,
+      startDate,
+      requiresProof,
+      proofType,
+    } = data;
+
+    const updateData = {};
+    if (title) updateData.title = title.trim();
+    if (description !== undefined) updateData.description = description ? description.trim() : null;
+    if (priority) updateData.priority = priority;
+    if (category !== undefined) updateData.category = category ? category.trim() : null;
+    if (branchId !== undefined) updateData.branchId = branchId || null;
+    if (teamId !== undefined) updateData.teamId = teamId || null;
+    if (dueDate !== undefined) updateData.dueDate = dueDate ? new Date(dueDate) : null;
+    if (startDate !== undefined) updateData.startDate = startDate ? new Date(startDate) : null;
+    if (requiresProof !== undefined) updateData.requiresProof = Boolean(requiresProof);
+    if (proofType !== undefined) updateData.proofType = proofType;
+
+    const updated = await prisma.$transaction(async (tx) => {
+      const res = await tx.task.update({
+        where: { id: taskId },
+        data: updateData,
+      });
+
+      await tx.taskActivityLog.create({
+        data: {
+          taskId,
+          userId,
+          action: 'UPDATED',
+          metadata: JSON.stringify({ fieldsUpdated: Object.keys(updateData) }),
+        },
+      });
+
+      return res;
+    });
+
+    return updated;
+  }
+
+  async deleteTask(taskId, tenantId, userId, role) {
+    const task = await prisma.task.findFirst({
+      where: { id: taskId, tenantId },
+    });
+
+    if (!task) {
+      const error = new Error('Task not found');
+      error.statusCode = 404;
+      throw error;
+    }
+
+    if (role === 'EMPLOYEE' && task.createdById !== userId) {
+      const error = new Error('Employees can only delete tasks they personally created.');
+      error.statusCode = 403;
+      throw error;
+    }
+
+    await prisma.task.delete({
+      where: { id: taskId },
+    });
+
+    return true;
+  }
+
+  async getMyTasks(tenantId, userId, query = {}) {
+    const { status, priority, limit = 50 } = query;
+    const where = {
+      tenantId,
+      assignments: {
+        some: { userId },
+      },
+    };
+
+    if (status && status !== 'ALL') {
+      where.status = status;
+    }
+
+    if (priority && priority !== 'ALL') {
+      where.priority = priority;
+    }
+
+    const tasks = await prisma.task.findMany({
+      where,
+      take: Math.min(100, parseInt(limit, 10)),
+      orderBy: { dueDate: 'asc' },
+      include: {
+        branch: { select: { id: true, name: true } },
+        team: { select: { id: true, name: true } },
+        checklists: { select: { id: true, isCompleted: true } },
+        _count: { select: { comments: true, evidence: true } },
+      },
+    });
+
+    return tasks;
+  }
+
+  async assignUser(taskId, tenantId, assignerId, targetUserId) {
+    const task = await prisma.task.findFirst({
+      where: { id: taskId, tenantId },
+    });
+    if (!task) {
+      const error = new Error('Task not found');
+      error.statusCode = 404;
+      throw error;
+    }
+
+    const assignment = await prisma.taskAssignment.upsert({
+      where: {
+        taskId_userId: { taskId, userId: targetUserId },
+      },
+      update: {},
+      create: { taskId, userId: targetUserId },
+      include: {
+        user: { select: { id: true, fullName: true, email: true } },
+      },
+    });
+
+    await prisma.taskActivityLog.create({
+      data: {
+        taskId,
+        userId: assignerId,
+        action: 'ASSIGNED',
+        metadata: JSON.stringify({ assignedUser: assignment.user.fullName }),
+      },
+    });
+
+    // Notify user
+    if (assignerId !== targetUserId) {
+      await prisma.notification.create({
+        data: {
+          tenantId,
+          userId: targetUserId,
+          title: `Assigned to Task: ${task.title}`,
+          message: `You have been assigned to task "${task.title}".`,
+          type: 'TASK_ASSIGNED',
+          entityType: 'task',
+          entityId: taskId,
+        },
+      });
+    }
+
+    return assignment;
+  }
+
+  async unassignUser(taskId, tenantId, unassignerId, targetUserId) {
+    const task = await prisma.task.findFirst({
+      where: { id: taskId, tenantId },
+    });
+    if (!task) {
+      const error = new Error('Task not found');
+      error.statusCode = 404;
+      throw error;
+    }
+
+    await prisma.taskAssignment.deleteMany({
+      where: { taskId, userId: targetUserId },
+    });
+
+    await prisma.taskActivityLog.create({
+      data: {
+        taskId,
+        userId: unassignerId,
+        action: 'UNASSIGNED',
+        metadata: JSON.stringify({ unassignedUserId: targetUserId }),
+      },
+    });
+
+    return true;
+  }
+
+  async addChecklistItem(taskId, tenantId, userId, title) {
+    const task = await prisma.task.findFirst({
+      where: { id: taskId, tenantId },
+    });
+    if (!task) {
+      const error = new Error('Task not found');
+      error.statusCode = 404;
+      throw error;
+    }
+
+    const count = await prisma.taskChecklistItem.count({ where: { taskId } });
+
+    const item = await prisma.taskChecklistItem.create({
+      data: {
+        taskId,
+        title: title.trim(),
+        sortOrder: count,
+      },
+    });
+
+    return item;
+  }
+
+  async toggleChecklistItem(taskId, tenantId, userId, itemId, isCompleted) {
+    const item = await prisma.taskChecklistItem.findFirst({
+      where: { id: itemId, taskId },
+    });
+    if (!item) {
+      const error = new Error('Checklist item not found');
+      error.statusCode = 404;
+      throw error;
+    }
+
+    const updated = await prisma.taskChecklistItem.update({
+      where: { id: itemId },
+      data: {
+        isCompleted: Boolean(isCompleted),
+        completedById: isCompleted ? userId : null,
+        completedAt: isCompleted ? new Date() : null,
+      },
+    });
+
+    return updated;
+  }
+
+  async deleteChecklistItem(taskId, tenantId, userId, itemId) {
+    const item = await prisma.taskChecklistItem.findFirst({
+      where: { id: itemId, taskId },
+    });
+    if (!item) {
+      const error = new Error('Checklist item not found');
+      error.statusCode = 404;
+      throw error;
+    }
+
+    await prisma.taskChecklistItem.delete({ where: { id: itemId } });
+    return true;
+  }
+
+  async addComment(taskId, tenantId, userId, content) {
+    const task = await prisma.task.findFirst({
+      where: { id: taskId, tenantId },
+      include: {
+        assignments: true,
+      },
+    });
+
+    if (!task) {
+      const error = new Error('Task not found');
+      error.statusCode = 404;
+      throw error;
+    }
+
+    const comment = await prisma.$transaction(async (tx) => {
+      const newComment = await tx.taskComment.create({
+        data: {
+          taskId,
+          userId,
+          content: content.trim(),
+        },
+        include: {
+          user: { select: { id: true, fullName: true, avatarUrl: true } },
+        },
+      });
+
+      await tx.taskActivityLog.create({
+        data: {
+          taskId,
+          userId,
+          action: 'COMMENTED',
+          metadata: JSON.stringify({ snippet: content.trim().substring(0, 50) }),
+        },
+      });
+
+      return newComment;
+    });
+
+    return comment;
+  }
+
+  async getComments(taskId, tenantId) {
+    return prisma.taskComment.findMany({
+      where: {
+        taskId,
+        task: { tenantId },
+      },
+      orderBy: { createdAt: 'asc' },
+      include: {
+        user: { select: { id: true, fullName: true, avatarUrl: true } },
+      },
+    });
+  }
+
+  async getActivityLogs(taskId, tenantId) {
+    return prisma.taskActivityLog.findMany({
+      where: {
+        taskId,
+        task: { tenantId },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+      include: {
+        user: { select: { id: true, fullName: true } },
+      },
+    });
+  }
 }
 
 module.exports = new TasksService();

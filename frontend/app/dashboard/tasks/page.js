@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { CheckSquare, Search, Filter, Plus, Calendar, Building2 } from 'lucide-react';
+import Link from 'next/link';
+import { CheckSquare, Search, Filter, Plus, Calendar, Building2, ChevronRight, ArrowRight } from 'lucide-react';
 import StatusBadge from '@/components/StatusBadge';
 import PriorityBadge from '@/components/PriorityBadge';
 import CreateTaskModal from '@/components/CreateTaskModal';
@@ -114,7 +115,7 @@ export default function TasksPage() {
             {tasks.map((task) => (
               <div
                 key={task.id}
-                className="p-4 sm:p-5 hover:bg-[#FAF6FD]/60 transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+                className="p-4 sm:p-5 hover:bg-[#FAF6FD]/60 transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-4 group"
               >
                 <div className="space-y-1.5 flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
@@ -129,7 +130,12 @@ export default function TasksPage() {
                       </span>
                     )}
                   </div>
-                  <h3 className="text-sm font-bold text-[#251A2D] truncate">{task.title}</h3>
+                  <Link
+                    href={`/dashboard/tasks/${task.id}`}
+                    className="text-sm font-bold text-[#251A2D] group-hover:text-[#7F5D99] transition-colors truncate block"
+                  >
+                    {task.title}
+                  </Link>
                   {task.description && (
                     <p className="text-xs text-[#6B6172] line-clamp-1">{task.description}</p>
                   )}
@@ -149,16 +155,26 @@ export default function TasksPage() {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2 sm:self-center shrink-0">
-                  {task.assignments?.map((a) => (
-                    <div
-                      key={a.user.id}
-                      title={a.user.fullName}
-                      className="w-7 h-7 rounded-full bg-[#7F5D99] text-white font-bold text-[11px] flex items-center justify-center border border-white shadow-2xs"
-                    >
-                      {a.user.fullName.charAt(0)}
-                    </div>
-                  ))}
+                <div className="flex items-center gap-3 sm:self-center shrink-0">
+                  <div className="flex items-center -space-x-1.5">
+                    {task.assignments?.map((a) => (
+                      <div
+                        key={a.user.id}
+                        title={a.user.fullName}
+                        className="w-7 h-7 rounded-full bg-[#7F5D99] text-white font-bold text-[11px] flex items-center justify-center border-2 border-white shadow-2xs"
+                      >
+                        {a.user.fullName.charAt(0)}
+                      </div>
+                    ))}
+                  </div>
+
+                  <Link
+                    href={`/dashboard/tasks/${task.id}`}
+                    className="p-2 rounded-xl bg-white hover:bg-[#FAF6FD] border border-[#E8DFED] text-[#7F5D99] transition-colors flex items-center gap-1 text-xs font-semibold"
+                  >
+                    View
+                    <ChevronRight className="w-4 h-4" />
+                  </Link>
                 </div>
               </div>
             ))}

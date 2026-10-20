@@ -111,6 +111,11 @@ class ApiClient {
     return this.request(`/tasks${query ? `?${query}` : ''}`);
   }
 
+  getMyTasks(params = {}) {
+    const query = new URLSearchParams(params).toString();
+    return this.request(`/tasks/my-tasks${query ? `?${query}` : ''}`);
+  }
+
   getTaskById(id) {
     return this.request(`/tasks/${id}`);
   }
@@ -122,11 +127,70 @@ class ApiClient {
     });
   }
 
+  updateTask(id, taskData) {
+    return this.request(`/tasks/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(taskData),
+    });
+  }
+
+  deleteTask(id) {
+    return this.request(`/tasks/${id}`, { method: 'DELETE' });
+  }
+
   updateTaskStatus(id, status) {
     return this.request(`/tasks/${id}/status`, {
       method: 'PATCH',
       body: JSON.stringify({ status }),
     });
+  }
+
+  assignTaskUser(id, userId) {
+    return this.request(`/tasks/${id}/assignments`, {
+      method: 'POST',
+      body: JSON.stringify({ userId }),
+    });
+  }
+
+  unassignTaskUser(id, userId) {
+    return this.request(`/tasks/${id}/assignments/${userId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  addChecklistItem(id, title) {
+    return this.request(`/tasks/${id}/checklists`, {
+      method: 'POST',
+      body: JSON.stringify({ title }),
+    });
+  }
+
+  toggleChecklistItem(id, itemId, isCompleted) {
+    return this.request(`/tasks/${id}/checklists/${itemId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ isCompleted }),
+    });
+  }
+
+  deleteChecklistItem(id, itemId) {
+    return this.request(`/tasks/${id}/checklists/${itemId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  addTaskComment(id, content) {
+    return this.request(`/tasks/${id}/comments`, {
+      method: 'POST',
+      body: JSON.stringify({ content }),
+    });
+  }
+
+  getTaskComments(id) {
+    return this.request(`/tasks/${id}/comments`);
+  }
+
+  getTaskActivity(id) {
+    return this.request(`/tasks/${id}/activity`);
   }
 
   // Branches & Teams & Members
