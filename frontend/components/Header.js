@@ -35,14 +35,16 @@ export default function Header({ onMenuClick, title = 'Dashboard Overview' }) {
             <UserCheck className="w-3.5 h-3.5 text-[#7F5D99]" />
             Role:
           </span>
-          {['OWNER', 'BRANCH_MANAGER', 'TEAM_LEADER', 'EMPLOYEE'].map((r) => {
+          {['SUPER_ADMIN', 'OWNER', 'BRANCH_MANAGER', 'TEAM_LEADER', 'EMPLOYEE', 'VIEWER'].map((r) => {
             const labels = {
+              SUPER_ADMIN: 'SuperAdmin',
               OWNER: 'Owner',
               BRANCH_MANAGER: 'Manager',
               TEAM_LEADER: 'Lead',
               EMPLOYEE: 'Employee',
+              VIEWER: 'Viewer',
             };
-            const isActive = role === r;
+            const isActive = role === r || (r === 'SUPER_ADMIN' && user?.isPlatformAdmin && !role);
             return (
               <button
                 key={r}

@@ -2,7 +2,7 @@ const prisma = require('../../config/prisma');
 const { emitToTenant, emitToUser } = require('../../sockets/socketHandler');
 
 class TasksService {
-  async getTasks(tenantId, user, role, query = {}) {
+  async getTasks(tenantId, user, role, query = {}, membership = null) {
     const {
       status,
       priority,
@@ -35,19 +35,32 @@ class TasksService {
       };
     }
 
-    if (status && status !== 'ALL') {
-      where.status = status;
-    }
-
-    if (priority && priority !== 'ALL') {
-      where.priority = priority;
-    }
-
-    if (branchId) {
+    // Branch Manager: strictly scoped to assigned branch
+    if (role === 'BRANCH_MANAGER' && membership?.branchId) {
+      if (branchId && branchId !== membership.branchId) {
+        const error = new Error('Access denied. You can only view tasks from your assigned branch.');
+        error.statusCode = 403;
+        throw error;
+      }
+      where.branchId = membership.branchId;
+    } else if (branchId) {
       where.branchId = branchId;
     }
 
-    if (teamId) {
+    // Team Leader: strictly scoped to assigned teams
+    if (role === 'TEAM_LEADER' && membership?.teamMemberships && membership.teamMemberships.length > 0) {
+      const leadTeamIds = membership.teamMemberships.map((tm) => tm.teamId);
+      if (teamId) {
+        if (!leadTeamIds.includes(teamId)) {
+          const error = new Error('Access denied. You can only view tasks from your assigned teams.');
+          error.statusCode = 403;
+          throw error;
+        }
+        where.teamId = teamId;
+      } else {
+        where.teamId = { in: leadTeamIds };
+      }
+    } else if (teamId) {
       where.teamId = teamId;
     }
 
@@ -99,7 +112,7 @@ class TasksService {
     };
   }
 
-  async getTaskById(taskId, tenantId, user, role) {
+  async getTaskById(taskId, tenantId, user, role, membership = null) {
     const task = await prisma.task.findFirst({
       where: {
         id: taskId,
@@ -171,17 +184,41 @@ class TasksService {
       }
     }
 
+    // Branch restriction for Branch Manager
+    if (role === 'BRANCH_MANAGER' && membership?.branchId) {
+      if (task.branchId && task.branchId !== membership.branchId) {
+        const error = new Error('Access denied. You can only access tasks within your assigned branch.');
+        error.statusCode = 403;
+        throw error;
+      }
+    }
+
+    // Team restriction for Team Leader
+    if (role === 'TEAM_LEADER' && membership?.teamMemberships && membership.teamMemberships.length > 0) {
+      const leadTeamIds = membership.teamMemberships.map((tm) => tm.teamId);
+      const isAssigned = task.assignments.some((a) => a.userId === user.id);
+      if (task.teamId && !leadTeamIds.includes(task.teamId) && !isAssigned && task.createdById !== user.id) {
+        const error = new Error('Access denied. You can only access tasks within your authorized teams.');
+        error.statusCode = 403;
+        throw error;
+      }
+    }
+
     return task;
   }
 
-  async createTask(tenantId, userId, data) {
+  async createTask(tenantId, userId, data, role = null, membership = null) {
+    if (role === 'VIEWER') {
+      const error = new Error('Access denied. Viewers have read-only access and cannot create tasks.');
+      error.statusCode = 403;
+      throw error;
+    }
+
     const {
       title,
       description,
       priority = 'NORMAL',
       category,
-      branchId,
-      teamId,
       dueDate,
       startDate,
       requiresProof = false,
@@ -189,6 +226,27 @@ class TasksService {
       assigneeIds = [],
       checklistItems = [],
     } = data;
+
+    let targetBranchId = data.branchId || null;
+    let targetTeamId = data.teamId || null;
+
+    if (role === 'BRANCH_MANAGER' && membership?.branchId) {
+      if (targetBranchId && targetBranchId !== membership.branchId) {
+        const error = new Error('Access denied. You cannot create tasks for a branch other than your own.');
+        error.statusCode = 403;
+        throw error;
+      }
+      targetBranchId = membership.branchId;
+    }
+
+    if (role === 'TEAM_LEADER' && membership?.teamMemberships && membership.teamMemberships.length > 0) {
+      const leadTeamIds = membership.teamMemberships.map((tm) => tm.teamId);
+      if (targetTeamId && !leadTeamIds.includes(targetTeamId)) {
+        const error = new Error('Access denied. You can only create tasks for teams you coordinate.');
+        error.statusCode = 403;
+        throw error;
+      }
+    }
 
     const task = await prisma.$transaction(async (tx) => {
       const newTask = await tx.task.create({
@@ -198,8 +256,8 @@ class TasksService {
           description: description?.trim() || null,
           priority,
           category: category?.trim() || null,
-          branchId: branchId || null,
-          teamId: teamId || null,
+          branchId: targetBranchId,
+          teamId: targetTeamId,
           createdById: userId,
           dueDate: dueDate ? new Date(dueDate) : null,
           startDate: startDate ? new Date(startDate) : null,
@@ -265,6 +323,12 @@ class TasksService {
   }
 
   async updateTaskStatus(taskId, tenantId, user, role, newStatus) {
+    if (role === 'VIEWER') {
+      const error = new Error('Access denied. Viewers have read-only access.');
+      error.statusCode = 403;
+      throw error;
+    }
+
     const validStatuses = ['PENDING', 'IN_PROGRESS', 'SUBMITTED', 'CHANGES_REQUESTED', 'COMPLETED', 'CANCELLED'];
     if (!validStatuses.includes(newStatus)) {
       const error = new Error(`Invalid task status: ${newStatus}`);
@@ -783,9 +847,9 @@ class TasksService {
     return true;
   }
 
-  async submitReview(taskId, tenantId, reviewerUser, role, data) {
-    if (role === 'EMPLOYEE') {
-      const error = new Error('Employees cannot review or approve tasks. A Manager or Owner is required.');
+  async submitReview(taskId, tenantId, reviewerUser, role, data, membership = null) {
+    if (role === 'EMPLOYEE' || role === 'VIEWER') {
+      const error = new Error('Employees and Viewers cannot review or approve tasks. A Manager or Owner is required.');
       error.statusCode = 403;
       throw error;
     }
@@ -811,6 +875,23 @@ class TasksService {
     if (!task) {
       const error = new Error('Task not found');
       error.statusCode = 404;
+      throw error;
+    }
+
+    // Branch Manager restriction: must be in their assigned branch
+    if (role === 'BRANCH_MANAGER' && membership?.branchId) {
+      if (task.branchId && task.branchId !== membership.branchId) {
+        const error = new Error('Access denied. You can only review tasks within your assigned branch.');
+        error.statusCode = 403;
+        throw error;
+      }
+    }
+
+    // Self-approval guard: Prevent employees and supervisors from self-approving their own assigned tasks
+    const isAssignee = task.assignments.some((a) => a.userId === reviewerUser.id);
+    if (isAssignee && role !== 'OWNER' && !reviewerUser.isPlatformAdmin) {
+      const error = new Error('Self-approval violation: You cannot approve or review a task assigned to yourself.');
+      error.statusCode = 403;
       throw error;
     }
 

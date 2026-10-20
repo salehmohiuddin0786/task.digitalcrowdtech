@@ -4,39 +4,18 @@ import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
-  LayoutDashboard,
-  CheckSquare,
-  ListTodo,
-  KanbanSquare,
-  Building2,
-  Users2,
-  UserCircle,
-  Bell,
-  Settings,
   LogOut,
   ChevronRight,
   ShieldCheck,
-  BarChart3,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
+import { getAuthorizedNavigation } from '@/lib/navigation';
 
 export default function Sidebar({ isOpen, onClose }) {
   const pathname = usePathname();
-  const { user, tenant, role, logout } = useAuth();
+  const { user, tenant, role, permissions, logout } = useAuth();
 
-  const navItems = [
-    { label: 'Overview', href: '/dashboard', icon: LayoutDashboard },
-    { label: 'My Tasks', href: '/dashboard/my-tasks', icon: ListTodo },
-    { label: 'Task Explorer', href: '/dashboard/tasks', icon: CheckSquare },
-    { label: 'Kanban Board', href: '/dashboard/board', icon: KanbanSquare },
-    { label: 'Branches', href: '/dashboard/branches', icon: Building2 },
-    { label: 'Teams', href: '/dashboard/teams', icon: Users2 },
-    { label: 'Employees', href: '/dashboard/employees', icon: UserCircle },
-    { label: 'Roles & RBAC', href: '/dashboard/roles', icon: ShieldCheck },
-    { label: 'Reports & Analytics', href: '/dashboard/reports', icon: BarChart3 },
-    { label: 'Notifications', href: '/dashboard/notifications', icon: Bell },
-    { label: 'Settings', href: '/dashboard/settings', icon: Settings },
-  ];
+  const navItems = getAuthorizedNavigation(user, role, permissions);
 
   const roleLabels = {
     OWNER: 'Business Owner',

@@ -24,6 +24,11 @@ async function resolveTenant(req, res, next) {
       include: {
         tenant: true,
         branch: true,
+        teamMemberships: {
+          include: {
+            team: true,
+          },
+        },
         role: {
           include: {
             permissions: {
@@ -37,16 +42,28 @@ async function resolveTenant(req, res, next) {
     });
 
     if (!membership) {
-      // If platform super admin, grant tenant context if requested
-      if (req.user.isPlatformAdmin && requestedTenantId) {
-        const tenant = await prisma.tenant.findUnique({
-          where: { id: requestedTenantId },
-        });
-        if (tenant) {
-          req.tenant = tenant;
+      // If platform super admin, grant tenant context if requested or allow platform access
+      if (req.user.isPlatformAdmin) {
+        if (requestedTenantId) {
+          const tenant = await prisma.tenant.findUnique({
+            where: { id: requestedTenantId },
+          });
+          if (tenant) {
+            req.tenant = tenant;
+            req.membership = null;
+            req.role = 'SUPER_ADMIN';
+            req.permissions = ['*'];
+            req.teams = [];
+            req.teamIds = [];
+            return next();
+          }
+        } else {
+          req.tenant = null;
           req.membership = null;
           req.role = 'SUPER_ADMIN';
           req.permissions = ['*'];
+          req.teams = [];
+          req.teamIds = [];
           return next();
         }
       }
@@ -62,6 +79,9 @@ async function resolveTenant(req, res, next) {
     req.membership = membership;
     req.role = membership.role.name;
     req.branch = membership.branch;
+    req.branchId = membership.branchId;
+    req.teams = membership.teamMemberships ? membership.teamMemberships.map((tm) => tm.team) : [];
+    req.teamIds = membership.teamMemberships ? membership.teamMemberships.map((tm) => tm.teamId) : [];
     req.permissions = membership.role.permissions.map((rp) => rp.permission.slug);
 
     next();

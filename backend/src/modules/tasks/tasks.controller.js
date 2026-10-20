@@ -5,7 +5,13 @@ const { apiSuccess, apiError } = require('../../utils/response');
 class TasksController {
   async getTasks(req, res, next) {
     try {
-      const result = await tasksService.getTasks(req.tenant.id, req.user, req.role, req.query);
+      const result = await tasksService.getTasks(
+        req.tenant.id,
+        req.user,
+        req.role,
+        req.query,
+        req.membership
+      );
       return apiSuccess(res, result, 'Tasks retrieved successfully.');
     } catch (error) {
       next(error);
@@ -23,7 +29,13 @@ class TasksController {
 
   async getTaskById(req, res, next) {
     try {
-      const task = await tasksService.getTaskById(req.params.id, req.tenant.id, req.user, req.role);
+      const task = await tasksService.getTaskById(
+        req.params.id,
+        req.tenant.id,
+        req.user,
+        req.role,
+        req.membership
+      );
       return apiSuccess(res, task, 'Task details retrieved.');
     } catch (error) {
       next(error);
@@ -32,7 +44,13 @@ class TasksController {
 
   async createTask(req, res, next) {
     try {
-      const task = await tasksService.createTask(req.tenant.id, req.user.id, req.body);
+      const task = await tasksService.createTask(
+        req.tenant.id,
+        req.user.id,
+        req.body,
+        req.role,
+        req.membership
+      );
       return apiSuccess(res, task, 'Task created successfully.', 201);
     } catch (error) {
       next(error);
@@ -224,7 +242,8 @@ class TasksController {
         req.tenant.id,
         req.user,
         req.role,
-        req.body
+        req.body,
+        req.membership
       );
       return apiSuccess(res, review, 'Task review recorded successfully.', 201);
     } catch (error) {

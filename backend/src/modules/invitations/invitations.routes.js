@@ -242,6 +242,16 @@ router.post('/', requirePermission('members.invite'), validate(createInvitationS
       );
     }
 
+    // Privilege escalation guard on invitation roles
+    const targetRole = await prisma.role.findUnique({ where: { id: roleId } });
+    if (!targetRole) return apiError(res, 'Specified role does not exist', 400);
+    if (targetRole.name === 'SUPER_ADMIN') {
+      return apiError(res, 'Privilege escalation: SUPER_ADMIN role cannot be assigned or invited within a tenant workspace.', 403);
+    }
+    if (targetRole.name === 'OWNER' && req.role !== 'OWNER' && !req.user.isPlatformAdmin) {
+      return apiError(res, 'Privilege escalation: You cannot invite Owner users.', 403);
+    }
+
     // Check if already an active member in this tenant
     const existingMember = await prisma.tenantMember.findFirst({
       where: {

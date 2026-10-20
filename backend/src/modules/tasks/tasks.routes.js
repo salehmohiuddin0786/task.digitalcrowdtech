@@ -124,18 +124,32 @@ router.post('/recurrence/generate', (req, res, next) =>
 
 // Single task item routes
 router.get('/:id', (req, res, next) => tasksController.getTaskById(req, res, next));
-router.patch('/:id', validate(updateTaskSchema), (req, res, next) => tasksController.updateTask(req, res, next));
-router.delete('/:id', (req, res, next) => tasksController.deleteTask(req, res, next));
+router.patch(
+  '/:id',
+  requirePermission('tasks.edit'),
+  validate(updateTaskSchema),
+  (req, res, next) => tasksController.updateTask(req, res, next)
+);
+router.delete(
+  '/:id',
+  requirePermission('tasks.delete'),
+  (req, res, next) => tasksController.deleteTask(req, res, next)
+);
 router.patch('/:id/status', validate(updateStatusSchema), (req, res, next) =>
   tasksController.updateStatus(req, res, next)
 );
 
 // Assignments
-router.post('/:id/assignments', validate(assignUserSchema), (req, res, next) =>
-  tasksController.assignUser(req, res, next)
+router.post(
+  '/:id/assignments',
+  requirePermission('tasks.assign'),
+  validate(assignUserSchema),
+  (req, res, next) => tasksController.assignUser(req, res, next)
 );
-router.delete('/:id/assignments/:userId', (req, res, next) =>
-  tasksController.unassignUser(req, res, next)
+router.delete(
+  '/:id/assignments/:userId',
+  requirePermission('tasks.assign'),
+  (req, res, next) => tasksController.unassignUser(req, res, next)
 );
 
 // Checklists
@@ -173,8 +187,11 @@ router.delete('/:id/evidence/:evidenceId', (req, res, next) =>
 );
 
 // Reviews & Approvals
-router.post('/:id/reviews', validate(reviewSchema), (req, res, next) =>
-  tasksController.submitReview(req, res, next)
+router.post(
+  '/:id/reviews',
+  requirePermission('tasks.review'),
+  validate(reviewSchema),
+  (req, res, next) => tasksController.submitReview(req, res, next)
 );
 router.get('/:id/reviews', (req, res, next) => tasksController.getReviews(req, res, next));
 

@@ -70,6 +70,7 @@ async function main() {
 
   // 3. Map Role Permissions
   const rolePermissionMap = {
+    SUPER_ADMIN: Object.keys(permissions),
     OWNER: Object.keys(permissions),
     BRANCH_MANAGER: [
       'tasks.view', 'tasks.create', 'tasks.edit', 'tasks.assign', 'tasks.submit', 'tasks.review',
@@ -243,6 +244,24 @@ async function main() {
       designation: 'Full Stack Engineer',
       isPlatformAdmin: false,
     },
+    {
+      email: 'superadmin@digitalcrowdtech.in',
+      fullName: 'Platform Super Admin',
+      phone: '+91 9999999999',
+      role: 'SUPER_ADMIN',
+      branchId: null,
+      designation: 'Global Platform Architect',
+      isPlatformAdmin: true,
+    },
+    {
+      email: 'viewer@digitalcrowdtech.in',
+      fullName: 'Pooja Auditor',
+      phone: '+91 9876543214',
+      role: 'VIEWER',
+      branchId: hqBranch.id,
+      designation: 'Compliance Auditor',
+      isPlatformAdmin: false,
+    },
   ];
 
   const seededUsers = {};
@@ -288,7 +307,24 @@ async function main() {
   }
   console.log('✅ Users & Tenant Members seeded with default password: Password@123');
 
-  // Assign team member
+  // Assign team member & leader
+  if (seededUsers['lead@digitalcrowdtech.in']) {
+    await prisma.teamMember.upsert({
+      where: {
+        teamId_memberId: {
+          teamId: engTeam.id,
+          memberId: seededUsers['lead@digitalcrowdtech.in'].member.id,
+        },
+      },
+      update: { isLeader: true },
+      create: {
+        teamId: engTeam.id,
+        memberId: seededUsers['lead@digitalcrowdtech.in'].member.id,
+        isLeader: true,
+      },
+    });
+  }
+
   if (seededUsers['employee@digitalcrowdtech.in']) {
     await prisma.teamMember.upsert({
       where: {

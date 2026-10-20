@@ -146,9 +146,13 @@ router.patch('/:id', requirePermission('members.manage'), validate(updateMemberS
     if (roleId) {
       const role = await prisma.role.findUnique({ where: { id: roleId } });
       if (!role) return apiError(res, 'Specified role does not exist', 400);
-      // Only platform admins or owners can assign OWNER or SUPER_ADMIN roles
-      if (['OWNER', 'SUPER_ADMIN'].includes(role.name) && req.role !== 'OWNER' && !req.user.isPlatformAdmin) {
-        return apiError(res, 'Privilege escalation: You cannot assign Owner or Super Admin roles.', 403);
+      
+      // Platform administrator privilege escalation guard
+      if (role.name === 'SUPER_ADMIN') {
+        return apiError(res, 'Privilege escalation: SUPER_ADMIN role cannot be assigned within a tenant workspace.', 403);
+      }
+      if (role.name === 'OWNER' && req.role !== 'OWNER' && !req.user.isPlatformAdmin) {
+        return apiError(res, 'Privilege escalation: You cannot assign the Owner role.', 403);
       }
     }
 

@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
+import { hasPermission, canUser } from '@/lib/permissions';
 
 const AuthContext = createContext(null);
 
@@ -134,14 +135,23 @@ export function AuthProvider({ children }) {
 
   const quickDemoLogin = async (roleType) => {
     const creds = {
+      SUPER_ADMIN: { email: 'superadmin@digitalcrowdtech.in', password: 'Password@123' },
       OWNER: { email: 'admin@digitalcrowdtech.in', password: 'Password@123' },
       BRANCH_MANAGER: { email: 'manager@digitalcrowdtech.in', password: 'Password@123' },
       TEAM_LEADER: { email: 'lead@digitalcrowdtech.in', password: 'Password@123' },
       EMPLOYEE: { email: 'employee@digitalcrowdtech.in', password: 'Password@123' },
+      VIEWER: { email: 'viewer@digitalcrowdtech.in', password: 'Password@123' },
     };
     const target = creds[roleType] || creds.OWNER;
     return login(target.email, target.password);
   };
+
+  const isSuperAdmin = user?.isPlatformAdmin || role === 'SUPER_ADMIN';
+  const isOwner = role === 'OWNER';
+  const isManager = role === 'BRANCH_MANAGER';
+  const isLeader = role === 'TEAM_LEADER';
+  const isEmployee = role === 'EMPLOYEE';
+  const isViewer = role === 'VIEWER';
 
   return (
     <AuthContext.Provider
@@ -160,6 +170,14 @@ export function AuthProvider({ children }) {
         switchTenant,
         quickDemoLogin,
         refreshSession: loadSession,
+        hasPermission: (slug) => hasPermission(permissions, slug),
+        can: (action) => canUser(user, role, permissions, action),
+        isSuperAdmin,
+        isOwner,
+        isManager,
+        isLeader,
+        isEmployee,
+        isViewer,
       }}
     >
       {children}

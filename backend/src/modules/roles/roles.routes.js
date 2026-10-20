@@ -115,6 +115,11 @@ router.put(
         return apiError(res, 'Role not found', 404);
       }
 
+      // Cannot modify SUPER_ADMIN role via tenant workspace
+      if (role.name === 'SUPER_ADMIN') {
+        return apiError(res, 'Access denied. System SUPER_ADMIN role permissions are immutable.', 403);
+      }
+
       // Prevent locking oneself out: OWNER role must retain essential permissions
       if (role.name === 'OWNER') {
         const requiredOwnerPerms = ['settings.manage', 'members.manage', 'tasks.view', 'tasks.create'];
