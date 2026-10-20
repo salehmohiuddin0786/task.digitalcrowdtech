@@ -92,11 +92,11 @@ export default function Sidebar({ isOpen, onClose }) {
         {/* Navigation Items */}
         <nav className="flex-1 px-4 py-5 space-y-1.5 overflow-y-auto">
           {navItems.map((item) => {
-            const isActive = pathname === item.href;
+            const isActive = pathname === item.href.split('?')[0] && (item.href.includes('?') ? (typeof window !== 'undefined' && window.location.search === item.href.slice(item.href.indexOf('?'))) : true);
             const Icon = item.icon;
             return (
               <Link
-                key={item.href}
+                key={item.key || item.href}
                 href={item.href}
                 onClick={onClose}
                 className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-colors ${

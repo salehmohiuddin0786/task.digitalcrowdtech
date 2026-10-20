@@ -35,13 +35,13 @@ export function getAuthorizedNavigation(user, role, permissions = []) {
       {
         key: 'organizations',
         label: 'System Tenants',
-        href: '/dashboard',
+        href: '/dashboard?tab=tenants',
         icon: Building2,
       },
       {
         key: 'system-health',
         label: 'System Health & Metrics',
-        href: '/dashboard/settings',
+        href: '/dashboard/settings?tab=diagnostics',
         icon: Activity,
       },
       {
