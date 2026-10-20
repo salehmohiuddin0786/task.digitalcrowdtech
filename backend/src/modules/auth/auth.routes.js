@@ -3,6 +3,7 @@ const { z } = require('zod');
 const authController = require('./auth.controller');
 const { authenticate } = require('../../middleware/auth');
 const validate = require('../../middleware/validate');
+const { authLimiter } = require('../../middleware/rateLimiter');
 
 const router = express.Router();
 
@@ -44,8 +45,8 @@ const changePasswordSchema = z.object({
   }),
 });
 
-router.post('/register', validate(registerSchema), (req, res, next) => authController.register(req, res, next));
-router.post('/login', validate(loginSchema), (req, res, next) => authController.login(req, res, next));
+router.post('/register', authLimiter, validate(registerSchema), (req, res, next) => authController.register(req, res, next));
+router.post('/login', authLimiter, validate(loginSchema), (req, res, next) => authController.login(req, res, next));
 router.post('/refresh', (req, res, next) => authController.refresh(req, res, next));
 router.post('/logout', (req, res, next) => authController.logout(req, res, next));
 router.get('/me', authenticate, (req, res, next) => authController.me(req, res, next));

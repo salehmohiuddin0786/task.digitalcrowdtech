@@ -4,7 +4,9 @@ const helmet = require('helmet');
 const cookieParser = require('cookie-parser');
 const morgan = require('morgan');
 const env = require('./config/env');
+const prisma = require('./config/prisma');
 const errorHandler = require('./middleware/errorHandler');
+const { apiLimiter } = require('./middleware/rateLimiter');
 
 // Route modules
 const authRoutes = require('./modules/auth/auth.routes');
@@ -53,18 +55,50 @@ if (env.NODE_ENV === 'development') {
   app.use(morgan('dev'));
 }
 
-// Health check endpoint
-app.get('/api/health', (req, res) => {
-  res.status(200).json({
-    status: 'healthy',
+// Centralized Health and System Diagnostics Handler
+const healthCheckHandler = async (req, res) => {
+  let dbStatus = 'connected';
+  let latencyMs = 0;
+  const start = Date.now();
+
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    latencyMs = Date.now() - start;
+  } catch (error) {
+    dbStatus = 'disconnected';
+  }
+
+  const memoryUsage = process.memoryUsage();
+  const isHealthy = dbStatus === 'connected';
+
+  const payload = {
+    status: isHealthy ? 'healthy' : 'degraded',
     service: 'TaskDigitalCrowd Backend API',
     company: 'Digital Crowd Technologies',
     version: '1.0.0',
+    environment: env.NODE_ENV,
+    uptimeSeconds: Math.floor(process.uptime()),
     timestamp: new Date().toISOString(),
-  });
-});
+    system: {
+      database: {
+        status: dbStatus,
+        latencyMs,
+      },
+      memory: {
+        rssMb: Math.round(memoryUsage.rss / 1024 / 1024),
+        heapUsedMb: Math.round(memoryUsage.heapUsed / 1024 / 1024),
+      },
+    },
+  };
 
-// Versioned API v1 Router
+  return res.status(isHealthy ? 200 : 503).json(payload);
+};
+
+app.get('/health', healthCheckHandler);
+app.get('/api/health', healthCheckHandler);
+app.get('/api/v1/health', healthCheckHandler);
+
+// Versioned API v1 Router with Production Rate Limiting
 const v1Router = express.Router();
 v1Router.use('/auth', authRoutes);
 v1Router.use('/dashboard', dashboardRoutes);
@@ -78,7 +112,7 @@ v1Router.use('/roles', roleRoutes);
 v1Router.use('/invitations', invitationRoutes);
 v1Router.use('/reports', reportsRoutes);
 
-app.use('/api/v1', v1Router);
+app.use('/api/v1', apiLimiter, v1Router);
 
 // 404 handler for unmatched routes
 app.use((req, res) => {
