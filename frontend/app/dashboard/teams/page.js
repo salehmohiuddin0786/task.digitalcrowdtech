@@ -36,22 +36,28 @@ export default function TeamsPage() {
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const { role } = useAuth();
+  const { role, can } = useAuth();
   const canManage = role === 'OWNER' || role === 'SUPER_ADMIN' || role === 'BRANCH_MANAGER';
 
   const loadAll = async () => {
     setLoading(true);
     try {
+      const memberPromise = can('members.view')
+        ? api.getMembers().catch(() => ({ success: false, data: [] }))
+        : Promise.resolve({ success: true, data: [] });
+      const branchPromise = api.getBranches().catch(() => ({ success: false, data: [] }));
+      const teamsPromise = api.getTeams().catch(() => ({ success: false, data: [] }));
+
       const [teamsRes, branchRes, memberRes] = await Promise.all([
-        api.getTeams(),
-        api.getBranches(),
-        api.getMembers(),
+        teamsPromise,
+        branchPromise,
+        memberPromise,
       ]);
       if (teamsRes.success) setTeams(teamsRes.data || []);
       if (branchRes.success) setBranches(branchRes.data || []);
       if (memberRes.success) setMembers(memberRes.data || []);
     } catch (e) {
-      console.error(e);
+      console.warn('Teams data load warning:', e.message);
     } finally {
       setLoading(false);
     }

@@ -3,8 +3,10 @@
 import React, { useState, useEffect } from 'react';
 import { X, Plus, Trash2, Calendar, AlertTriangle, CheckSquare } from 'lucide-react';
 import { api } from '@/lib/api';
+import { useAuth } from '@/context/AuthContext';
 
 export default function CreateTaskModal({ isOpen, onClose, onTaskCreated }) {
+  const { can } = useAuth();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [priority, setPriority] = useState('NORMAL');
@@ -21,22 +23,24 @@ export default function CreateTaskModal({ isOpen, onClose, onTaskCreated }) {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && can('tasks.create')) {
       loadBranchesAndMembers();
     }
-  }, [isOpen]);
+  }, [isOpen, can]);
 
   const loadBranchesAndMembers = async () => {
     try {
-      const [branchRes, memberRes] = await Promise.all([
-        api.getBranches(),
-        api.getMembers(),
-      ]);
+      const branchPromise = api.getBranches().catch(() => ({ success: false, data: [] }));
+      const memberPromise = can('members.view')
+        ? api.getMembers().catch(() => ({ success: false, data: [] }))
+        : Promise.resolve({ success: true, data: [] });
+
+      const [branchRes, memberRes] = await Promise.all([branchPromise, memberPromise]);
       if (branchRes.success) setBranches(branchRes.data || []);
       if (memberRes.success) setMembers(memberRes.data || []);
       if (branchRes.data?.[0]) setBranchId(branchRes.data[0].id);
     } catch (e) {
-      console.error(e);
+      // Graceful fallback
     }
   };
 
@@ -105,7 +109,7 @@ export default function CreateTaskModal({ isOpen, onClose, onTaskCreated }) {
     }
   };
 
-  if (!isOpen) return null;
+  if (!isOpen || !can('tasks.create')) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs overflow-y-auto">
@@ -229,35 +233,37 @@ export default function CreateTaskModal({ isOpen, onClose, onTaskCreated }) {
           </div>
 
           {/* Assignees Selection */}
-          <div>
-            <label className="block text-xs font-bold text-[#251A2D] uppercase tracking-wider mb-1.5">
-              Assign Staff Members
-            </label>
-            <div className="flex flex-wrap gap-2 p-2.5 rounded-xl border border-[#E8DFED] max-h-32 overflow-y-auto bg-[#FAF6FD]/40">
-              {members.length === 0 ? (
-                <span className="text-xs text-[#6B6172]">No members available to assign</span>
-              ) : (
-                members.map((m) => {
-                  const isSelected = assigneeIds.includes(m.user.id);
-                  return (
-                    <button
-                      type="button"
-                      key={m.id}
-                      onClick={() => toggleAssignee(m.user.id)}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 cursor-pointer ${
-                        isSelected
-                          ? 'bg-[#7F5D99] text-white shadow-xs'
-                          : 'bg-white border border-[#E8DFED] text-[#251A2D] hover:bg-[#F2EDF7]'
-                      }`}
-                    >
-                      <span className="w-1.5 h-1.5 rounded-full bg-current" />
-                      {m.user.fullName} ({m.role.label})
-                    </button>
-                  );
-                })
-              )}
+          {can('tasks.assign') && can('members.view') && (
+            <div>
+              <label className="block text-xs font-bold text-[#251A2D] uppercase tracking-wider mb-1.5">
+                Assign Staff Members
+              </label>
+              <div className="flex flex-wrap gap-2 p-2.5 rounded-xl border border-[#E8DFED] max-h-32 overflow-y-auto bg-[#FAF6FD]/40">
+                {members.length === 0 ? (
+                  <span className="text-xs text-[#6B6172]">No members available to assign</span>
+                ) : (
+                  members.map((m) => {
+                    const isSelected = assigneeIds.includes(m.user.id);
+                    return (
+                      <button
+                        type="button"
+                        key={m.id}
+                        onClick={() => toggleAssignee(m.user.id)}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 cursor-pointer ${
+                          isSelected
+                            ? 'bg-[#7F5D99] text-white shadow-xs'
+                            : 'bg-white border border-[#E8DFED] text-[#251A2D] hover:bg-[#F2EDF7]'
+                        }`}
+                      >
+                        <span className="w-1.5 h-1.5 rounded-full bg-current" />
+                        {m.user.fullName} ({m.role.label})
+                      </button>
+                    );
+                  })
+                )}
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Evidence Verification Switch */}
           <div className="p-3.5 rounded-2xl border border-[#E8DFED] bg-[#FAF6FD]/60 flex items-center justify-between">

@@ -17,8 +17,10 @@ import {
 import PriorityBadge from '@/components/PriorityBadge';
 import CreateTaskModal from '@/components/CreateTaskModal';
 import { api } from '@/lib/api';
+import { useAuth } from '@/context/AuthContext';
 
 export default function KanbanBoardPage() {
+  const { can } = useAuth();
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [updatingId, setUpdatingId] = useState(null);
@@ -76,13 +78,15 @@ export default function KanbanBoardPage() {
             Visual workflow pipeline and interactive stage-by-stage status distribution.
           </p>
         </div>
-        <button
-          onClick={() => setIsTaskModalOpen(true)}
-          className="px-4 py-2.5 rounded-xl bg-[#7F5D99] hover:bg-[#4C2365] text-white font-bold text-xs sm:text-sm transition-all shadow-md flex items-center gap-2 cursor-pointer"
-        >
-          <Plus className="w-4 h-4" />
-          Create Task
-        </button>
+        {can('tasks.create') && (
+          <button
+            onClick={() => setIsTaskModalOpen(true)}
+            className="px-4 py-2.5 rounded-xl bg-[#7F5D99] hover:bg-[#4C2365] text-white font-bold text-xs sm:text-sm transition-all shadow-md flex items-center gap-2 cursor-pointer"
+          >
+            <Plus className="w-4 h-4" />
+            Create Task
+          </button>
+        )}
       </div>
 
       {/* Kanban Columns Grid */}
@@ -220,11 +224,13 @@ export default function KanbanBoardPage() {
         })}
       </div>
 
-      <CreateTaskModal
-        isOpen={isTaskModalOpen}
-        onClose={() => setIsTaskModalOpen(false)}
-        onTaskCreated={() => loadTasks()}
-      />
+      {isTaskModalOpen && can('tasks.create') && (
+        <CreateTaskModal
+          isOpen={isTaskModalOpen}
+          onClose={() => setIsTaskModalOpen(false)}
+          onTaskCreated={() => loadTasks()}
+        />
+      )}
     </div>
   );
 }

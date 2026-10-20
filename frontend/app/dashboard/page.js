@@ -16,7 +16,7 @@ export default function DashboardResolverPage() {
   const [metrics, setMetrics] = useState(null);
   const [dataLoading, setDataLoading] = useState(true);
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
-  const { user, tenant, role, loading: authLoading } = useAuth();
+  const { user, tenant, role, can, loading: authLoading } = useAuth();
 
   const loadData = useCallback(async () => {
     setDataLoading(true);
@@ -120,7 +120,7 @@ export default function DashboardResolverPage() {
       )}
 
       {/* Task Creation Modal */}
-      {isTaskModalOpen && effectiveRole !== 'VIEWER' && (
+      {isTaskModalOpen && can('tasks.create') && (
         <CreateTaskModal
           isOpen={isTaskModalOpen}
           onClose={() => setIsTaskModalOpen(false)}
