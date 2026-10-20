@@ -29,6 +29,7 @@ export default function Sidebar({ isOpen, onClose }) {
     { label: 'Branches', href: '/dashboard/branches', icon: Building2 },
     { label: 'Teams', href: '/dashboard/teams', icon: Users2 },
     { label: 'Employees', href: '/dashboard/employees', icon: UserCircle },
+    { label: 'Roles & RBAC', href: '/dashboard/roles', icon: ShieldCheck },
     { label: 'Notifications', href: '/dashboard/notifications', icon: Bell },
     { label: 'Settings', href: '/dashboard/settings', icon: Settings },
   ];

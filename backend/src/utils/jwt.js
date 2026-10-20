@@ -3,13 +3,13 @@ const crypto = require('crypto');
 const env = require('../config/env');
 
 function generateAccessToken(payload) {
-  return jwt.sign(payload, env.JWT_ACCESS_SECRET, {
+  return jwt.sign({ ...payload, jti: crypto.randomUUID() }, env.JWT_ACCESS_SECRET, {
     expiresIn: env.JWT_ACCESS_EXPIRES_IN,
   });
 }
 
 function generateRefreshToken(payload) {
-  return jwt.sign(payload, env.JWT_REFRESH_SECRET, {
+  return jwt.sign({ ...payload, jti: crypto.randomUUID() }, env.JWT_REFRESH_SECRET, {
     expiresIn: env.JWT_REFRESH_EXPIRES_IN,
   });
 }

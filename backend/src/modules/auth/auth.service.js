@@ -412,6 +412,91 @@ class AuthService {
       unreadNotificationCount: unreadCount,
     };
   }
+
+  async getActiveSessions(userId) {
+    const sessions = await prisma.refreshSession.findMany({
+      where: {
+        userId,
+        isRevoked: false,
+        expiresAt: { gt: new Date() },
+      },
+      select: {
+        id: true,
+        ipAddress: true,
+        userAgent: true,
+        createdAt: true,
+        expiresAt: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+    return sessions;
+  }
+
+  async revokeSession(userId, sessionId) {
+    const session = await prisma.refreshSession.findFirst({
+      where: { id: sessionId, userId },
+    });
+    if (!session) {
+      const error = new Error('Session not found or already revoked');
+      error.statusCode = 404;
+      throw error;
+    }
+    await prisma.refreshSession.update({
+      where: { id: sessionId },
+      data: { isRevoked: true },
+    });
+    return true;
+  }
+
+  async updateProfile(userId, { fullName, phone, avatarUrl }) {
+    const data = {};
+    if (fullName) data.fullName = fullName.trim();
+    if (phone !== undefined) data.phone = phone ? phone.trim() : null;
+    if (avatarUrl !== undefined) data.avatarUrl = avatarUrl;
+
+    const user = await prisma.user.update({
+      where: { id: userId },
+      data,
+      select: {
+        id: true,
+        email: true,
+        fullName: true,
+        phone: true,
+        avatarUrl: true,
+      },
+    });
+    return user;
+  }
+
+  async changePassword(userId, currentPassword, newPassword) {
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      const error = new Error('User not found');
+      error.statusCode = 404;
+      throw error;
+    }
+
+    const isValid = await bcrypt.compare(currentPassword, user.passwordHash);
+    if (!isValid) {
+      const error = new Error('Current password is incorrect');
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const passwordHash = await bcrypt.hash(newPassword, 10);
+    await prisma.user.update({
+      where: { id: userId },
+      data: { passwordHash },
+    });
+
+    // Revoke all other refresh sessions on password change for security
+    await prisma.refreshSession.updateMany({
+      where: { userId },
+      data: { isRevoked: true },
+    });
+
+    return true;
+  }
 }
 
 module.exports = new AuthService();

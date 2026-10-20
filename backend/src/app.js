@@ -14,6 +14,9 @@ const branchesRoutes = require('./modules/branches/branches.routes');
 const teamsRoutes = require('./modules/teams/teams.routes');
 const membersRoutes = require('./modules/members/members.routes');
 const notificationsRoutes = require('./modules/notifications/notifications.routes');
+const tenantRoutes = require('./modules/tenants/tenants.routes');
+const roleRoutes = require('./modules/roles/roles.routes');
+const invitationRoutes = require('./modules/invitations/invitations.routes');
 
 const app = express();
 
@@ -61,6 +64,9 @@ v1Router.use('/branches', branchesRoutes);
 v1Router.use('/teams', teamsRoutes);
 v1Router.use('/members', membersRoutes);
 v1Router.use('/notifications', notificationsRoutes);
+v1Router.use('/tenants', tenantRoutes);
+v1Router.use('/roles', roleRoutes);
+v1Router.use('/invitations', invitationRoutes);
 
 app.use('/api/v1', v1Router);
 

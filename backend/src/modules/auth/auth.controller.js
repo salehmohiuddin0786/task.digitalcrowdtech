@@ -103,6 +103,43 @@ class AuthController {
       next(error);
     }
   }
+
+  async getSessions(req, res, next) {
+    try {
+      const sessions = await authService.getActiveSessions(req.user.id);
+      return apiSuccess(res, sessions, 'Active sessions retrieved.');
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async revokeSession(req, res, next) {
+    try {
+      await authService.revokeSession(req.user.id, req.params.sessionId);
+      return apiSuccess(res, null, 'Session revoked successfully.');
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async updateProfile(req, res, next) {
+    try {
+      const user = await authService.updateProfile(req.user.id, req.body);
+      return apiSuccess(res, user, 'Profile updated successfully.');
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async changePassword(req, res, next) {
+    try {
+      const { currentPassword, newPassword } = req.body;
+      await authService.changePassword(req.user.id, currentPassword, newPassword);
+      return apiSuccess(res, null, 'Password updated successfully. Other sessions have been revoked.');
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 module.exports = new AuthController();

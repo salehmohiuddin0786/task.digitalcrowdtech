@@ -134,12 +134,157 @@ class ApiClient {
     return this.request('/branches');
   }
 
+  createBranch(data) {
+    return this.request('/branches', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  updateBranch(id, data) {
+    return this.request(`/branches/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  }
+
+  deleteBranch(id) {
+    return this.request(`/branches/${id}`, { method: 'DELETE' });
+  }
+
   getTeams() {
     return this.request('/teams');
   }
 
+  createTeam(data) {
+    return this.request('/teams', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  updateTeam(id, data) {
+    return this.request(`/teams/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  }
+
+  deleteTeam(id) {
+    return this.request(`/teams/${id}`, { method: 'DELETE' });
+  }
+
+  assignTeamMember(teamId, data) {
+    return this.request(`/teams/${teamId}/members`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  removeTeamMember(teamId, memberId) {
+    return this.request(`/teams/${teamId}/members/${memberId}`, {
+      method: 'DELETE',
+    });
+  }
+
   getMembers() {
     return this.request('/members');
+  }
+
+  updateMember(memberId, data) {
+    return this.request(`/members/${memberId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  }
+
+  deleteMember(memberId) {
+    return this.request(`/members/${memberId}`, { method: 'DELETE' });
+  }
+
+  // Roles & Permissions
+  getRoles() {
+    return this.request('/roles');
+  }
+
+  getAllPermissions() {
+    return this.request('/roles/permissions/all');
+  }
+
+  getRolePermissions(roleId) {
+    return this.request(`/roles/${roleId}/permissions`);
+  }
+
+  updateRolePermissions(roleId, permissionSlugs) {
+    return this.request(`/roles/${roleId}/permissions`, {
+      method: 'PUT',
+      body: JSON.stringify({ permissionSlugs }),
+    });
+  }
+
+  // Invitations
+  getInvitations() {
+    return this.request('/invitations');
+  }
+
+  createInvitation(data) {
+    return this.request('/invitations', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  revokeInvitation(id) {
+    return this.request(`/invitations/${id}`, { method: 'DELETE' });
+  }
+
+  verifyInvitation(token) {
+    return this.request(`/invitations/verify/${token}`);
+  }
+
+  acceptInvitation(data) {
+    return this.request('/invitations/accept', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // Tenant Settings & Sessions
+  getTenantCurrent() {
+    return this.request('/tenants/current');
+  }
+
+  getTenantUsage() {
+    return this.request('/tenants/usage');
+  }
+
+  updateTenantCurrent(data) {
+    return this.request('/tenants/current', {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  }
+
+  getSessions() {
+    return this.request('/auth/sessions');
+  }
+
+  revokeSession(sessionId) {
+    return this.request(`/auth/sessions/${sessionId}`, { method: 'DELETE' });
+  }
+
+  updateProfile(data) {
+    return this.request('/auth/profile', {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  }
+
+  changePassword(data) {
+    return this.request('/auth/change-password', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
   }
 
   // Notifications
