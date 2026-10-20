@@ -215,7 +215,7 @@ async function main() {
       role: 'OWNER',
       branchId: hqBranch.id,
       designation: 'Managing Director & Founder',
-      isPlatformAdmin: true,
+      isPlatformAdmin: false,
     },
     {
       email: 'manager@digitalcrowdtech.in',

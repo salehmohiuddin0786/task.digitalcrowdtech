@@ -20,11 +20,26 @@ import { api } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
 
 export default function KanbanBoardPage() {
-  const { can } = useAuth();
+  const { user, role, can } = useAuth();
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [updatingId, setUpdatingId] = useState(null);
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
+
+  const canTransitionTask = (task) => {
+    if (role === 'VIEWER') return false;
+    if (role === 'OWNER' || role === 'SUPER_ADMIN' || role === 'BRANCH_MANAGER' || role === 'TEAM_LEADER') return true;
+    if (role === 'EMPLOYEE') {
+      return task.assignments?.some((a) => a.userId === user?.id);
+    }
+    return false;
+  };
+
+  const canAdvanceTo = (task, targetStatus) => {
+    if (role === 'VIEWER') return false;
+    if (role === 'EMPLOYEE' && targetStatus === 'COMPLETED') return false;
+    return true;
+  };
 
   const loadTasks = async () => {
     setLoading(true);
@@ -52,6 +67,10 @@ export default function KanbanBoardPage() {
   ];
 
   const handleStatusChange = async (taskId, newStatus) => {
+    if (role === 'VIEWER') {
+      alert('Viewers have read-only access and cannot modify task status.');
+      return;
+    }
     setUpdatingId(taskId);
     try {
       await api.updateTaskStatus(taskId, newStatus);
@@ -183,37 +202,51 @@ export default function KanbanBoardPage() {
                           </span>
                         </div>
 
-                        {/* Interactive Status Transition Controls */}
-                        <div className="flex items-center justify-between pt-1 gap-1 border-t border-dashed border-[#F0E6F6]">
-                          {prevCol ? (
-                            <button
-                              onClick={() => handleStatusChange(task.id, prevCol.key)}
-                              title={`Move to ${prevCol.label}`}
-                              className="px-2 py-1 rounded-lg bg-[#FAF6FD] hover:bg-[#E8DFED] text-[10px] font-semibold text-[#6B6172] flex items-center gap-0.5 cursor-pointer"
-                            >
-                              <ArrowLeft className="w-3 h-3" />
-                              Back
-                            </button>
-                          ) : (
-                            <div />
-                          )}
+                        {/* Interactive Status Transition Controls (Hidden for Read-Only Viewers) */}
+                        {role === 'VIEWER' ? (
+                          <div className="pt-1 border-t border-dashed border-[#F0E6F6] text-right">
+                            <span className="text-[10px] text-[#6B6172] italic">Read-only card</span>
+                          </div>
+                        ) : canTransitionTask(task) ? (
+                          <div className="flex items-center justify-between pt-1 gap-1 border-t border-dashed border-[#F0E6F6]">
+                            {prevCol ? (
+                              <button
+                                onClick={() => handleStatusChange(task.id, prevCol.key)}
+                                title={`Move to ${prevCol.label}`}
+                                className="px-2 py-1 rounded-lg bg-[#FAF6FD] hover:bg-[#E8DFED] text-[10px] font-semibold text-[#6B6172] flex items-center gap-0.5 cursor-pointer"
+                              >
+                                <ArrowLeft className="w-3 h-3" />
+                                Back
+                              </button>
+                            ) : (
+                              <div />
+                            )}
 
-                          {nextCol ? (
-                            <button
-                              onClick={() => handleStatusChange(task.id, nextCol.key)}
-                              title={`Advance to ${nextCol.label}`}
-                              className="px-2 py-1 rounded-lg bg-[#FAF6FD] hover:bg-[#7F5D99] hover:text-white text-[10px] font-bold text-[#7F5D99] flex items-center gap-0.5 transition-colors cursor-pointer"
-                            >
-                              Advance
-                              <ArrowRight className="w-3 h-3" />
-                            </button>
-                          ) : (
-                            <span className="text-[10px] text-emerald-600 font-bold flex items-center gap-0.5">
-                              <CheckCircle2 className="w-3 h-3" />
-                              Done
-                            </span>
-                          )}
-                        </div>
+                            {nextCol && canAdvanceTo(task, nextCol.key) ? (
+                              <button
+                                onClick={() => handleStatusChange(task.id, nextCol.key)}
+                                title={`Advance to ${nextCol.label}`}
+                                className="px-2 py-1 rounded-lg bg-[#FAF6FD] hover:bg-[#7F5D99] hover:text-white text-[10px] font-bold text-[#7F5D99] flex items-center gap-0.5 transition-colors cursor-pointer"
+                              >
+                                Advance
+                                <ArrowRight className="w-3 h-3" />
+                              </button>
+                            ) : !nextCol ? (
+                              <span className="text-[10px] text-emerald-600 font-bold flex items-center gap-0.5">
+                                <CheckCircle2 className="w-3 h-3" />
+                                Done
+                              </span>
+                            ) : (
+                              <span className="text-[10px] text-[#7F5D99] font-medium italic">
+                                Supervisor review required
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="pt-1 border-t border-dashed border-[#F0E6F6] text-right">
+                            <span className="text-[10px] text-[#6B6172]">Not assigned to you</span>
+                          </div>
+                        )}
                       </div>
                     );
                   })

@@ -435,7 +435,10 @@ function TaskDetailContent() {
     totalChecklistCount > 0 ? Math.round((completedChecklistCount / totalChecklistCount) * 100) : 0;
 
   const isEmployee = role === 'EMPLOYEE';
+  const isViewer = role === 'VIEWER';
   const isManagerOrOwner = ['OWNER', 'BRANCH_MANAGER', 'SUPER_ADMIN'].includes(role);
+  const isAssignee = task.assignments?.some((a) => a.user?.id === user?.id || a.userId === user?.id);
+  const canPerformWorkerActions = !isViewer && (isManagerOrOwner || role === 'TEAM_LEADER' || isAssignee);
   const requiresProofMissing = task.requiresProof && evidenceList.length === 0;
   const hasBlockingPrerequisites =
     task.prerequisites?.some((p) => !p.isOverridden && p.prerequisiteTask?.status !== 'COMPLETED') ||
@@ -473,7 +476,13 @@ function TaskDetailContent() {
 
         {/* Status Transition Action Buttons */}
         <div className="flex items-center gap-2 flex-wrap">
-          {task.status === 'PENDING' && (
+          {isViewer && (
+            <span className="text-xs font-semibold px-3 py-1.5 rounded-xl bg-purple-100 text-[#4C2365] border border-purple-200">
+              Read-Only Mode
+            </span>
+          )}
+
+          {!isViewer && task.status === 'PENDING' && canPerformWorkerActions && (
             <button
               onClick={() => handleStatusChange('IN_PROGRESS')}
               disabled={statusUpdating}
@@ -484,7 +493,7 @@ function TaskDetailContent() {
             </button>
           )}
 
-          {task.status === 'IN_PROGRESS' && (
+          {!isViewer && task.status === 'IN_PROGRESS' && canPerformWorkerActions && (
             <button
               onClick={() => handleStatusChange('SUBMITTED')}
               disabled={statusUpdating}
@@ -495,7 +504,7 @@ function TaskDetailContent() {
             </button>
           )}
 
-          {task.status === 'SUBMITTED' && isManagerOrOwner && (
+          {!isViewer && task.status === 'SUBMITTED' && isManagerOrOwner && (
             <button
               onClick={() => setIsReviewModalOpen(true)}
               disabled={statusUpdating}
@@ -506,7 +515,7 @@ function TaskDetailContent() {
             </button>
           )}
 
-          {task.status === 'CHANGES_REQUESTED' && (
+          {!isViewer && task.status === 'CHANGES_REQUESTED' && canPerformWorkerActions && (
             <button
               onClick={() => handleStatusChange('IN_PROGRESS')}
               disabled={statusUpdating}
@@ -517,7 +526,7 @@ function TaskDetailContent() {
             </button>
           )}
 
-          {isManagerOrOwner && task.status !== 'COMPLETED' && task.status !== 'CANCELLED' && (
+          {!isViewer && isManagerOrOwner && task.status !== 'COMPLETED' && task.status !== 'CANCELLED' && (
             <button
               onClick={() => {
                 if (confirm('Cancel this task?')) handleStatusChange('CANCELLED');
@@ -546,12 +555,14 @@ function TaskDetailContent() {
               </p>
             </div>
           </div>
-          <button
-            onClick={() => setIsUploadModalOpen(true)}
-            className="px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs shrink-0 cursor-pointer"
-          >
-            Upload Now
-          </button>
+          {!isViewer && canPerformWorkerActions && (
+            <button
+              onClick={() => setIsUploadModalOpen(true)}
+              className="px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs shrink-0 cursor-pointer"
+            >
+              Upload Now
+            </button>
+          )}
         </div>
       )}
 
@@ -743,13 +754,15 @@ function TaskDetailContent() {
                   Proof of Execution & Evidence ({evidenceList.length})
                 </h3>
               </div>
-              <button
-                onClick={() => setIsUploadModalOpen(true)}
-                className="px-3 py-1.5 rounded-xl bg-[#7F5D99] hover:bg-[#4C2365] text-white font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
-              >
-                <UploadCloud className="w-3.5 h-3.5" />
-                Upload Evidence
-              </button>
+              {!isViewer && canPerformWorkerActions && (
+                <button
+                  onClick={() => setIsUploadModalOpen(true)}
+                  className="px-3 py-1.5 rounded-xl bg-[#7F5D99] hover:bg-[#4C2365] text-white font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <UploadCloud className="w-3.5 h-3.5" />
+                  Upload Evidence
+                </button>
+              )}
             </div>
 
             {/* Evidence Items Grid */}
@@ -822,7 +835,7 @@ function TaskDetailContent() {
                         <span className="text-[9px] text-[#6B6172]">
                           {new Date(item.createdAt).toLocaleDateString()}
                         </span>
-                        {(isManagerOrOwner || item.uploadedById === user?.id) && (
+                        {!isViewer && (isManagerOrOwner || item.uploadedById === user?.id) && (
                           <button
                             onClick={() => handleDeleteEvidence(item.id)}
                             className="text-rose-600 hover:text-rose-800 p-1 text-[11px] cursor-pointer"
@@ -924,12 +937,13 @@ function TaskDetailContent() {
                     key={item.id}
                     className="p-3 rounded-2xl bg-[#FAF6FD]/60 border border-[#E8DFED] hover:border-[#9E7EB5] transition-all flex items-center justify-between gap-3 group"
                   >
-                    <label className="flex items-center gap-3 flex-1 cursor-pointer select-none">
+                    <label className={`flex items-center gap-3 flex-1 select-none ${isViewer ? 'cursor-default' : 'cursor-pointer'}`}>
                       <input
                         type="checkbox"
                         checked={item.isCompleted}
+                        disabled={isViewer}
                         onChange={() => handleToggleChecklist(item.id, item.isCompleted)}
-                        className="w-4 h-4 text-[#7F5D99] rounded-md border-[#C4A4DA] focus:ring-[#7F5D99] cursor-pointer"
+                        className={`w-4 h-4 text-[#7F5D99] rounded-md border-[#C4A4DA] focus:ring-[#7F5D99] ${isViewer ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}
                       />
                       <span
                         className={`text-xs font-medium ${
@@ -942,7 +956,7 @@ function TaskDetailContent() {
                       </span>
                     </label>
 
-                    {isManagerOrOwner && (
+                    {!isViewer && isManagerOrOwner && (
                       <button
                         onClick={() => handleDeleteChecklist(item.id)}
                         className="opacity-0 group-hover:opacity-100 p-1 text-[#6B6172] hover:text-rose-600 transition-opacity cursor-pointer"
@@ -957,23 +971,25 @@ function TaskDetailContent() {
             </div>
 
             {/* Add Checklist Item Form */}
-            <form onSubmit={handleAddChecklist} className="flex gap-2 pt-2">
-              <input
-                type="text"
-                value={newChecklistTitle}
-                onChange={(e) => setNewChecklistTitle(e.target.value)}
-                placeholder="Add subtask or milestone item..."
-                className="flex-1 px-3.5 py-2 text-xs rounded-xl border border-[#E8DFED] focus:outline-hidden focus:ring-2 focus:ring-[#7F5D99]"
-              />
-              <button
-                type="submit"
-                disabled={addingChecklist || !newChecklistTitle.trim()}
-                className="px-3.5 py-2 rounded-xl bg-[#7F5D99] hover:bg-[#4C2365] text-white font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                Add
-              </button>
-            </form>
+            {!isViewer && (
+              <form onSubmit={handleAddChecklist} className="flex gap-2 pt-2">
+                <input
+                  type="text"
+                  value={newChecklistTitle}
+                  onChange={(e) => setNewChecklistTitle(e.target.value)}
+                  placeholder="Add subtask or milestone item..."
+                  className="flex-1 px-3.5 py-2 text-xs rounded-xl border border-[#E8DFED] focus:outline-hidden focus:ring-2 focus:ring-[#7F5D99]"
+                />
+                <button
+                  type="submit"
+                  disabled={addingChecklist || !newChecklistTitle.trim()}
+                  className="px-3.5 py-2 rounded-xl bg-[#7F5D99] hover:bg-[#4C2365] text-white font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  Add
+                </button>
+              </form>
+            )}
           </div>
 
           {/* Collaborative Comments Section */}
@@ -1021,23 +1037,29 @@ function TaskDetailContent() {
               )}
             </div>
 
-            <form onSubmit={handleAddComment} className="flex gap-2 pt-2">
-              <input
-                type="text"
-                value={newComment}
-                onChange={(e) => setNewComment(e.target.value)}
-                placeholder="Post a comment or update..."
-                className="flex-1 px-3.5 py-2 text-xs rounded-xl border border-[#E8DFED] focus:outline-hidden focus:ring-2 focus:ring-[#7F5D99]"
-              />
-              <button
-                type="submit"
-                disabled={submittingComment || !newComment.trim()}
-                className="px-4 py-2 rounded-xl bg-[#7F5D99] hover:bg-[#4C2365] text-white font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
-              >
-                <Send className="w-3.5 h-3.5" />
-                Reply
-              </button>
-            </form>
+            {!isViewer ? (
+              <form onSubmit={handleAddComment} className="flex gap-2 pt-2">
+                <input
+                  type="text"
+                  value={newComment}
+                  onChange={(e) => setNewComment(e.target.value)}
+                  placeholder="Post a comment or update..."
+                  className="flex-1 px-3.5 py-2 text-xs rounded-xl border border-[#E8DFED] focus:outline-hidden focus:ring-2 focus:ring-[#7F5D99]"
+                />
+                <button
+                  type="submit"
+                  disabled={submittingComment || !newComment.trim()}
+                  className="px-4 py-2 rounded-xl bg-[#7F5D99] hover:bg-[#4C2365] text-white font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
+                >
+                  <Send className="w-3.5 h-3.5" />
+                  Reply
+                </button>
+              </form>
+            ) : (
+              <div className="p-3 text-center text-xs text-[#6B6172] bg-[#FAF6FD] rounded-xl border border-[#E8DFED] italic">
+                Viewing discussion in read-only mode. Comments are disabled for viewers.
+              </div>
+            )}
           </div>
         </div>
 

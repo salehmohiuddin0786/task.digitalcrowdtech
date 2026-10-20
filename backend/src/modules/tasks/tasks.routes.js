@@ -98,32 +98,32 @@ const recurrenceSchema = z.object({
 });
 
 // Collection routes
-router.get('/', (req, res, next) => tasksController.getTasks(req, res, next));
-router.get('/my-tasks', (req, res, next) => tasksController.getMyTasks(req, res, next));
+router.get('/', requirePermission('tasks.view'), (req, res, next) => tasksController.getTasks(req, res, next));
+router.get('/my-tasks', requirePermission('tasks.view'), (req, res, next) => tasksController.getMyTasks(req, res, next));
 router.post('/', requirePermission('tasks.create'), validate(createTaskSchema), (req, res, next) =>
   tasksController.createTask(req, res, next)
 );
 
 // Recurrence Routes
-router.get('/recurrence', (req, res, next) => tasksController.getRecurrenceRules(req, res, next));
+router.get('/recurrence', requirePermission('tasks.view'), (req, res, next) => tasksController.getRecurrenceRules(req, res, next));
 router.post(
   '/recurrence',
   requirePermission('tasks.create'),
   validate(recurrenceSchema),
   (req, res, next) => tasksController.createRecurrenceRule(req, res, next)
 );
-router.patch('/recurrence/:ruleId', (req, res, next) =>
+router.patch('/recurrence/:ruleId', requirePermission('tasks.edit'), (req, res, next) =>
   tasksController.updateRecurrenceRule(req, res, next)
 );
-router.delete('/recurrence/:ruleId', (req, res, next) =>
+router.delete('/recurrence/:ruleId', requirePermission('tasks.delete'), (req, res, next) =>
   tasksController.deleteRecurrenceRule(req, res, next)
 );
-router.post('/recurrence/generate', (req, res, next) =>
+router.post('/recurrence/generate', requirePermission('tasks.create'), (req, res, next) =>
   tasksController.generateDueRecurringTasks(req, res, next)
 );
 
 // Single task item routes
-router.get('/:id', (req, res, next) => tasksController.getTaskById(req, res, next));
+router.get('/:id', requirePermission('tasks.view'), (req, res, next) => tasksController.getTaskById(req, res, next));
 router.patch(
   '/:id',
   requirePermission('tasks.edit'),
@@ -159,7 +159,7 @@ router.post('/:id/checklists', validate(addChecklistSchema), (req, res, next) =>
 router.patch('/:id/checklists/:itemId', validate(toggleChecklistSchema), (req, res, next) =>
   tasksController.toggleChecklistItem(req, res, next)
 );
-router.delete('/:id/checklists/:itemId', (req, res, next) =>
+router.delete('/:id/checklists/:itemId', requirePermission('tasks.edit'), (req, res, next) =>
   tasksController.deleteChecklistItem(req, res, next)
 );
 
@@ -167,8 +167,8 @@ router.delete('/:id/checklists/:itemId', (req, res, next) =>
 router.post('/:id/comments', validate(addCommentSchema), (req, res, next) =>
   tasksController.addComment(req, res, next)
 );
-router.get('/:id/comments', (req, res, next) => tasksController.getComments(req, res, next));
-router.get('/:id/activity', (req, res, next) => tasksController.getActivityLogs(req, res, next));
+router.get('/:id/comments', requirePermission('tasks.view'), (req, res, next) => tasksController.getComments(req, res, next));
+router.get('/:id/activity', requirePermission('tasks.view'), (req, res, next) => tasksController.getActivityLogs(req, res, next));
 
 // Evidence & Proof of Execution
 router.post(
@@ -181,7 +181,7 @@ router.post(
   },
   (req, res, next) => tasksController.uploadEvidence(req, res, next)
 );
-router.get('/:id/evidence', (req, res, next) => tasksController.getEvidence(req, res, next));
+router.get('/:id/evidence', requirePermission('tasks.view'), (req, res, next) => tasksController.getEvidence(req, res, next));
 router.delete('/:id/evidence/:evidenceId', (req, res, next) =>
   tasksController.deleteEvidence(req, res, next)
 );
@@ -193,7 +193,7 @@ router.post(
   validate(reviewSchema),
   (req, res, next) => tasksController.submitReview(req, res, next)
 );
-router.get('/:id/reviews', (req, res, next) => tasksController.getReviews(req, res, next));
+router.get('/:id/reviews', requirePermission('tasks.view'), (req, res, next) => tasksController.getReviews(req, res, next));
 
 // Task Dependencies
 const addDependencySchema = z.object({
@@ -208,14 +208,15 @@ const overrideDependencySchema = z.object({
   }),
 });
 
-router.post('/:id/dependencies', validate(addDependencySchema), (req, res, next) =>
+router.post('/:id/dependencies', requirePermission('tasks.edit'), validate(addDependencySchema), (req, res, next) =>
   tasksController.addDependency(req, res, next)
 );
-router.delete('/:id/dependencies/:prereqId', (req, res, next) =>
+router.delete('/:id/dependencies/:prereqId', requirePermission('tasks.edit'), (req, res, next) =>
   tasksController.removeDependency(req, res, next)
 );
 router.post(
   '/:id/dependencies/:prereqId/override',
+  requirePermission('tasks.review'),
   validate(overrideDependencySchema),
   (req, res, next) => tasksController.overrideDependency(req, res, next)
 );

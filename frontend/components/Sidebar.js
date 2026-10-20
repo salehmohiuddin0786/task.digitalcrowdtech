@@ -57,8 +57,22 @@ export default function Sidebar({ isOpen, onClose }) {
             </div>
           </div>
 
-          {/* Active Tenant Workspace Pill */}
-          {tenant && (
+          {/* Active Tenant Workspace Pill / Platform Mode */}
+          {user?.isPlatformAdmin && (!role || role === 'SUPER_ADMIN') ? (
+            <div className="mt-4 p-2.5 rounded-xl bg-purple-900/50 backdrop-blur-xs border border-purple-400/30 flex items-center justify-between">
+              <div className="truncate">
+                <span className="block text-[10px] text-[#C4A4DA] uppercase tracking-wider font-semibold">
+                  Global Scope
+                </span>
+                <span className="text-xs font-bold text-white truncate block">
+                  Platform Admin
+                </span>
+              </div>
+              <span className="px-2 py-0.5 text-[10px] uppercase font-bold tracking-wider bg-emerald-700 text-white rounded-md">
+                Master
+              </span>
+            </div>
+          ) : tenant ? (
             <div className="mt-4 p-2.5 rounded-xl bg-white/10 backdrop-blur-xs border border-white/10 flex items-center justify-between">
               <div className="truncate">
                 <span className="block text-[10px] text-[#C4A4DA] uppercase tracking-wider font-semibold">
@@ -72,7 +86,7 @@ export default function Sidebar({ isOpen, onClose }) {
                 {tenant.planTier || 'Starter'}
               </span>
             </div>
-          )}
+          ) : null}
         </div>
 
         {/* Navigation Items */}

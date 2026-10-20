@@ -111,6 +111,9 @@ class TasksController {
 
   async addChecklistItem(req, res, next) {
     try {
+      if (req.role === 'VIEWER') {
+        return apiError(res, 'Access denied. Viewers have read-only access and cannot add checklist items.', 403);
+      }
       const { title } = req.body;
       const item = await tasksService.addChecklistItem(req.params.id, req.tenant.id, req.user.id, title);
       return apiSuccess(res, item, 'Checklist item added.', 201);
@@ -121,6 +124,9 @@ class TasksController {
 
   async toggleChecklistItem(req, res, next) {
     try {
+      if (req.role === 'VIEWER') {
+        return apiError(res, 'Access denied. Viewers have read-only access and cannot toggle checklist items.', 403);
+      }
       const { isCompleted } = req.body;
       const item = await tasksService.toggleChecklistItem(
         req.params.id,
@@ -137,6 +143,9 @@ class TasksController {
 
   async deleteChecklistItem(req, res, next) {
     try {
+      if (req.role === 'VIEWER') {
+        return apiError(res, 'Access denied. Viewers have read-only access and cannot delete checklist items.', 403);
+      }
       await tasksService.deleteChecklistItem(req.params.id, req.tenant.id, req.user.id, req.params.itemId);
       return apiSuccess(res, null, 'Checklist item removed.');
     } catch (error) {
@@ -146,6 +155,9 @@ class TasksController {
 
   async addComment(req, res, next) {
     try {
+      if (req.role === 'VIEWER') {
+        return apiError(res, 'Access denied. Viewers have read-only access and cannot post comments.', 403);
+      }
       const { content } = req.body;
       const comment = await tasksService.addComment(req.params.id, req.tenant.id, req.user.id, content);
       return apiSuccess(res, comment, 'Comment posted.', 201);
@@ -174,6 +186,9 @@ class TasksController {
 
   async uploadEvidence(req, res, next) {
     try {
+      if (req.role === 'VIEWER') {
+        return apiError(res, 'Access denied. Viewers have read-only access and cannot upload evidence.', 403);
+      }
       let fileData = {};
       if (req.file) {
         let detectedType = 'DOCUMENT';
@@ -222,6 +237,9 @@ class TasksController {
 
   async deleteEvidence(req, res, next) {
     try {
+      if (req.role === 'VIEWER') {
+        return apiError(res, 'Access denied. Viewers have read-only access and cannot delete evidence.', 403);
+      }
       await tasksService.deleteEvidence(
         req.params.id,
         req.tenant.id,
@@ -263,6 +281,9 @@ class TasksController {
   // Recurrence Management
   async createRecurrenceRule(req, res, next) {
     try {
+      if (req.role === 'VIEWER' || req.role === 'EMPLOYEE') {
+        return apiError(res, 'Access denied. You do not have permission to create recurrence rules.', 403);
+      }
       const rule = await recurrenceService.createRule(req.tenant.id, req.user.id, req.body);
       return apiSuccess(res, rule, 'Recurrence rule created successfully.', 201);
     } catch (error) {
@@ -281,6 +302,9 @@ class TasksController {
 
   async updateRecurrenceRule(req, res, next) {
     try {
+      if (req.role === 'VIEWER' || req.role === 'EMPLOYEE') {
+        return apiError(res, 'Access denied. You do not have permission to update recurrence rules.', 403);
+      }
       const rule = await recurrenceService.updateRule(req.params.ruleId, req.tenant.id, req.body);
       return apiSuccess(res, rule, 'Recurrence rule updated.');
     } catch (error) {
@@ -290,6 +314,9 @@ class TasksController {
 
   async deleteRecurrenceRule(req, res, next) {
     try {
+      if (req.role === 'VIEWER' || req.role === 'EMPLOYEE') {
+        return apiError(res, 'Access denied. You do not have permission to delete recurrence rules.', 403);
+      }
       await recurrenceService.deleteRule(req.params.ruleId, req.tenant.id);
       return apiSuccess(res, null, 'Recurrence rule deleted.');
     } catch (error) {
@@ -299,6 +326,9 @@ class TasksController {
 
   async generateDueRecurringTasks(req, res, next) {
     try {
+      if (req.role === 'VIEWER' || req.role === 'EMPLOYEE') {
+        return apiError(res, 'Access denied. You do not have permission to generate recurring tasks.', 403);
+      }
       const result = await recurrenceService.generateDueTasks(req.tenant.id, {
         forceAll: req.body?.forceAll || false,
         userId: req.user.id,
@@ -312,6 +342,9 @@ class TasksController {
   // Dependencies
   async addDependency(req, res, next) {
     try {
+      if (req.role === 'VIEWER' || req.role === 'EMPLOYEE') {
+        return apiError(res, 'Access denied. You do not have permission to manage task dependencies.', 403);
+      }
       const { prerequisiteTaskId } = req.body;
       const dep = await tasksService.addDependency(
         req.params.id,
@@ -327,6 +360,9 @@ class TasksController {
 
   async removeDependency(req, res, next) {
     try {
+      if (req.role === 'VIEWER' || req.role === 'EMPLOYEE') {
+        return apiError(res, 'Access denied. You do not have permission to manage task dependencies.', 403);
+      }
       await tasksService.removeDependency(
         req.params.id,
         req.tenant.id,
@@ -341,6 +377,9 @@ class TasksController {
 
   async overrideDependency(req, res, next) {
     try {
+      if (req.role === 'VIEWER' || req.role === 'EMPLOYEE') {
+        return apiError(res, 'Access denied. You do not have permission to override task dependencies.', 403);
+      }
       const { overrideReason } = req.body;
       const dep = await tasksService.overrideDependency(
         req.params.id,

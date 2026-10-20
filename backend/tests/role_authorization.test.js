@@ -244,6 +244,69 @@ describe('Role-Based Authorization & Dashboard Scoping Tests (All 6 Roles)', () 
     });
     assert.strictEqual(createRes.status, 403);
 
+    // Negative Authorization: Viewer attempts to update task status
+    const statusRes = await fetch(`${baseUrl}/api/v1/tasks/${testTaskId}/status`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${tokens.VIEWER}`,
+        'x-tenant-id': tenantId,
+      },
+      body: JSON.stringify({ status: 'IN_PROGRESS' }),
+    });
+    assert.strictEqual(statusRes.status, 403);
+
+    // Negative Authorization: Viewer attempts to post a comment
+    const commentRes = await fetch(`${baseUrl}/api/v1/tasks/${testTaskId}/comments`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${tokens.VIEWER}`,
+        'x-tenant-id': tenantId,
+      },
+      body: JSON.stringify({ content: 'Illegal viewer comment' }),
+    });
+    assert.strictEqual(commentRes.status, 403);
+
+    // Negative Authorization: Viewer attempts to add checklist item
+    const checklistRes = await fetch(`${baseUrl}/api/v1/tasks/${testTaskId}/checklists`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${tokens.VIEWER}`,
+        'x-tenant-id': tenantId,
+      },
+      body: JSON.stringify({ title: 'Illegal viewer checklist' }),
+    });
+    assert.strictEqual(checklistRes.status, 403);
+
+    // Negative Authorization: Viewer attempts to upload evidence
+    const evidenceRes = await fetch(`${baseUrl}/api/v1/tasks/${testTaskId}/evidence`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${tokens.VIEWER}`,
+        'x-tenant-id': tenantId,
+      },
+      body: JSON.stringify({ fileName: 'illegal.jpg', fileType: 'PHOTO' }),
+    });
+    assert.strictEqual(evidenceRes.status, 403);
+
+    // Negative Authorization: Viewer attempts to create recurrence rule
+    const recurrenceRes = await fetch(`${baseUrl}/api/v1/tasks/recurrence`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${tokens.VIEWER}`,
+        'x-tenant-id': tenantId,
+      },
+      body: JSON.stringify({
+        frequency: 'DAILY',
+        titleTemplate: 'Viewer daily recurring task',
+      }),
+    });
+    assert.strictEqual(recurrenceRes.status, 403);
+
     // Negative Authorization: Viewer attempts to export CSV reports
     const exportRes = await fetch(`${baseUrl}/api/v1/reports/export`, {
       headers: {

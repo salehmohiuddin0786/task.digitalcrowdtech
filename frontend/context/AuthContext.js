@@ -143,10 +143,14 @@ export function AuthProvider({ children }) {
       VIEWER: { email: 'viewer@digitalcrowdtech.in', password: 'Password@123' },
     };
     const target = creds[roleType] || creds.OWNER;
-    return login(target.email, target.password);
+    const res = await login(target.email, target.password);
+    if (res.success && typeof window !== 'undefined') {
+      window.location.href = '/dashboard';
+    }
+    return res;
   };
 
-  const isSuperAdmin = user?.isPlatformAdmin || role === 'SUPER_ADMIN';
+  const isSuperAdmin = Boolean(user?.isPlatformAdmin && (!role || role === 'SUPER_ADMIN'));
   const isOwner = role === 'OWNER';
   const isManager = role === 'BRANCH_MANAGER';
   const isLeader = role === 'TEAM_LEADER';
