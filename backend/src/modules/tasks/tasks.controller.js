@@ -1,4 +1,5 @@
 const tasksService = require('./tasks.service');
+const recurrenceService = require('./recurrence.service');
 const { apiSuccess, apiError } = require('../../utils/response');
 
 class TasksController {
@@ -235,6 +236,55 @@ class TasksController {
     try {
       const reviews = await tasksService.getReviews(req.params.id, req.tenant.id);
       return apiSuccess(res, reviews, 'Task review history retrieved.');
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // Recurrence Management
+  async createRecurrenceRule(req, res, next) {
+    try {
+      const rule = await recurrenceService.createRule(req.tenant.id, req.user.id, req.body);
+      return apiSuccess(res, rule, 'Recurrence rule created successfully.', 201);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async getRecurrenceRules(req, res, next) {
+    try {
+      const rules = await recurrenceService.getRules(req.tenant.id);
+      return apiSuccess(res, rules, 'Recurrence rules retrieved.');
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async updateRecurrenceRule(req, res, next) {
+    try {
+      const rule = await recurrenceService.updateRule(req.params.ruleId, req.tenant.id, req.body);
+      return apiSuccess(res, rule, 'Recurrence rule updated.');
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async deleteRecurrenceRule(req, res, next) {
+    try {
+      await recurrenceService.deleteRule(req.params.ruleId, req.tenant.id);
+      return apiSuccess(res, null, 'Recurrence rule deleted.');
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async generateDueRecurringTasks(req, res, next) {
+    try {
+      const result = await recurrenceService.generateDueTasks(req.tenant.id, {
+        forceAll: req.body?.forceAll || false,
+        userId: req.user.id,
+      });
+      return apiSuccess(res, result, 'Recurring tasks processed.');
     } catch (error) {
       next(error);
     }

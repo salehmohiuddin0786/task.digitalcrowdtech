@@ -77,4 +77,21 @@ router.post('/mark-all-read', async (req, res, next) => {
   }
 });
 
+// Delete notification
+router.delete('/:id', async (req, res, next) => {
+  try {
+    await prisma.notification.deleteMany({
+      where: {
+        id: req.params.id,
+        tenantId: req.tenant.id,
+        userId: req.user.id,
+      },
+    });
+
+    return apiSuccess(res, null, 'Notification removed.');
+  } catch (error) {
+    next(error);
+  }
+});
+
 module.exports = router;

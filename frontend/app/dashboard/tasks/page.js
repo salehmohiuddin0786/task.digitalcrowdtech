@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { CheckSquare, Search, Filter, Plus, Calendar, Building2, ChevronRight, ArrowRight } from 'lucide-react';
+import { CheckSquare, Search, Filter, Plus, Calendar, Building2, ChevronRight, ArrowRight, Repeat } from 'lucide-react';
 import StatusBadge from '@/components/StatusBadge';
 import PriorityBadge from '@/components/PriorityBadge';
 import CreateTaskModal from '@/components/CreateTaskModal';
@@ -50,13 +50,23 @@ export default function TasksPage() {
             Filter, inspect, and track assignments across all organizational units.
           </p>
         </div>
-        <button
-          onClick={() => setIsTaskModalOpen(true)}
-          className="px-4 py-2.5 rounded-xl bg-[#7F5D99] hover:bg-[#4C2365] text-white font-bold text-xs sm:text-sm transition-all shadow-md flex items-center gap-2 cursor-pointer"
-        >
-          <Plus className="w-4 h-4" />
-          Create Task
-        </button>
+        <div className="flex items-center gap-2">
+          <Link
+            href="/dashboard/tasks/recurrence"
+            className="px-3.5 py-2.5 rounded-xl border border-[#E8DFED] bg-white hover:bg-[#FAF6FD] text-[#7F5D99] font-bold text-xs sm:text-sm transition-all shadow-2xs flex items-center gap-1.5 cursor-pointer"
+          >
+            <Repeat className="w-4 h-4 text-[#C4A4DA]" />
+            Recurring Schedules
+          </Link>
+
+          <button
+            onClick={() => setIsTaskModalOpen(true)}
+            className="px-4 py-2.5 rounded-xl bg-[#7F5D99] hover:bg-[#4C2365] text-white font-bold text-xs sm:text-sm transition-all shadow-md flex items-center gap-2 cursor-pointer"
+          >
+            <Plus className="w-4 h-4" />
+            Create Task
+          </button>
+        </div>
       </div>
 
       {/* Filter and Search Bar */}

@@ -394,6 +394,40 @@ class ApiClient {
   markAllNotificationsRead() {
     return this.request('/notifications/mark-all-read', { method: 'POST' });
   }
+
+  deleteNotification(id) {
+    return this.request(`/notifications/${id}`, { method: 'DELETE' });
+  }
+
+  // Recurrence & Scheduled Tasks
+  getRecurrenceRules() {
+    return this.request('/tasks/recurrence');
+  }
+
+  createRecurrenceRule(data) {
+    return this.request('/tasks/recurrence', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  updateRecurrenceRule(id, data) {
+    return this.request(`/tasks/recurrence/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  }
+
+  deleteRecurrenceRule(id) {
+    return this.request(`/tasks/recurrence/${id}`, { method: 'DELETE' });
+  }
+
+  generateRecurringTasks(forceAll = false) {
+    return this.request('/tasks/recurrence/generate', {
+      method: 'POST',
+      body: JSON.stringify({ forceAll }),
+    });
+  }
 }
 
 export const api = new ApiClient();

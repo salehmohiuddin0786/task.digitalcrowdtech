@@ -1,4 +1,5 @@
 const prisma = require('../../config/prisma');
+const { emitToTenant, emitToUser } = require('../../sockets/socketHandler');
 
 class TasksService {
   async getTasks(tenantId, user, role, query = {}) {
@@ -219,7 +220,7 @@ class TasksService {
         // Add notifications for assigned users
         for (const uid of assigneeIds) {
           if (uid !== userId) {
-            await tx.notification.create({
+            const notif = await tx.notification.create({
               data: {
                 tenantId,
                 userId: uid,
@@ -230,6 +231,7 @@ class TasksService {
                 entityId: newTask.id,
               },
             });
+            emitToUser(uid, 'notification:new', notif);
           }
         }
       }
@@ -258,6 +260,7 @@ class TasksService {
       return newTask;
     });
 
+    emitToTenant(tenantId, 'task:created', task);
     return this.getTaskById(task.id, tenantId, { id: userId }, 'OWNER');
   }
 
@@ -369,6 +372,7 @@ class TasksService {
       return updatedTask;
     });
 
+    emitToTenant(tenantId, 'task:status_changed', { taskId, from: task.status, to: newStatus });
     return updated;
   }
 
@@ -517,7 +521,7 @@ class TasksService {
 
     // Notify user
     if (assignerId !== targetUserId) {
-      await prisma.notification.create({
+      const notif = await prisma.notification.create({
         data: {
           tenantId,
           userId: targetUserId,
@@ -528,8 +532,10 @@ class TasksService {
           entityId: taskId,
         },
       });
+      emitToUser(targetUserId, 'notification:new', notif);
     }
 
+    emitToTenant(tenantId, 'task:assigned', { taskId, targetUserId });
     return assignment;
   }
 
@@ -656,6 +662,7 @@ class TasksService {
       return newComment;
     });
 
+    emitToTenant(tenantId, 'task:commented', { taskId, comment });
     return comment;
   }
 
@@ -842,7 +849,7 @@ class TasksService {
       // Send notifications to assignees
       for (const a of task.assignments) {
         if (a.userId !== reviewerUser.id) {
-          await tx.notification.create({
+          const notif = await tx.notification.create({
             data: {
               tenantId,
               userId: a.userId,
@@ -859,12 +866,14 @@ class TasksService {
               entityId: taskId,
             },
           });
+          emitToUser(a.userId, 'notification:new', notif);
         }
       }
 
       return createdReview;
     });
 
+    emitToTenant(tenantId, 'task:reviewed', { taskId, decision, status: newStatus });
     return review;
   }
 

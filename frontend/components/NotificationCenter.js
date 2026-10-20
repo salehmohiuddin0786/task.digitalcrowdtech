@@ -1,15 +1,17 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Bell, CheckCheck, Clock, CheckCircle2, AlertCircle, Info } from 'lucide-react';
+import Link from 'next/link';
+import { Bell, CheckCheck, Clock, CheckCircle2, AlertCircle, Info, ExternalLink } from 'lucide-react';
 import { api } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
+import { getSocket } from '@/lib/socket';
 
 export default function NotificationCenter() {
   const [isOpen, setIsOpen] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(false);
-  const { unreadCount, setUnreadCount } = useAuth();
+  const { user, tenant, unreadCount, setUnreadCount } = useAuth();
   const dropdownRef = useRef(null);
 
   useEffect(() => {
@@ -21,6 +23,26 @@ export default function NotificationCenter() {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  // Connect to Socket.IO and listen for realtime notifications
+  useEffect(() => {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('tdc_token') : null;
+    if (!token || !user) return;
+
+    const socket = getSocket(token, tenant?.id);
+    if (!socket) return;
+
+    const handleNewNotification = (newNotif) => {
+      setNotifications((prev) => [newNotif, ...prev]);
+      setUnreadCount((c) => c + 1);
+    };
+
+    socket.on('notification:new', handleNewNotification);
+
+    return () => {
+      socket.off('notification:new', handleNewNotification);
+    };
+  }, [user, tenant, setUnreadCount]);
 
   const loadNotifications = async () => {
     setLoading(true);
@@ -167,10 +189,16 @@ export default function NotificationCenter() {
             )}
           </div>
 
-          <div className="p-2.5 border-t border-[#E8DFED] bg-white text-center">
-            <span className="text-[11px] text-[#6B6172]">
-              In-app notification center • Socket.IO live alerts enabled
-            </span>
+          <div className="p-3 border-t border-[#E8DFED] bg-[#FAF6FD]/60 flex items-center justify-between text-xs">
+            <span className="text-[10px] text-[#6B6172] font-medium">Socket.IO Live Sync</span>
+            <Link
+              href="/dashboard/notifications"
+              onClick={() => setIsOpen(false)}
+              className="text-xs font-bold text-[#7F5D99] hover:text-[#4C2365] flex items-center gap-1"
+            >
+              View all history
+              <ExternalLink className="w-3 h-3" />
+            </Link>
           </div>
         </div>
       )}

@@ -81,11 +81,45 @@ const reviewSchema = z.object({
   }),
 });
 
+const recurrenceSchema = z.object({
+  body: z.object({
+    frequency: z.enum(['DAILY', 'WEEKDAYS', 'WEEKLY', 'MONTHLY', 'CUSTOM']),
+    intervalDays: z.number().optional(),
+    daysOfWeek: z.string().optional(),
+    dayOfMonth: z.number().optional(),
+    startDate: z.string().optional(),
+    endDate: z.string().optional().nullable(),
+    titleTemplate: z.string().min(2, 'Title template is required'),
+    description: z.string().optional(),
+    priority: z.enum(['LOW', 'NORMAL', 'HIGH', 'URGENT']).optional(),
+    branchId: z.string().optional().nullable(),
+    teamId: z.string().optional().nullable(),
+  }),
+});
+
 // Collection routes
 router.get('/', (req, res, next) => tasksController.getTasks(req, res, next));
 router.get('/my-tasks', (req, res, next) => tasksController.getMyTasks(req, res, next));
 router.post('/', requirePermission('tasks.create'), validate(createTaskSchema), (req, res, next) =>
   tasksController.createTask(req, res, next)
+);
+
+// Recurrence Routes
+router.get('/recurrence', (req, res, next) => tasksController.getRecurrenceRules(req, res, next));
+router.post(
+  '/recurrence',
+  requirePermission('tasks.create'),
+  validate(recurrenceSchema),
+  (req, res, next) => tasksController.createRecurrenceRule(req, res, next)
+);
+router.patch('/recurrence/:ruleId', (req, res, next) =>
+  tasksController.updateRecurrenceRule(req, res, next)
+);
+router.delete('/recurrence/:ruleId', (req, res, next) =>
+  tasksController.deleteRecurrenceRule(req, res, next)
+);
+router.post('/recurrence/generate', (req, res, next) =>
+  tasksController.generateDueRecurringTasks(req, res, next)
 );
 
 // Single task item routes
