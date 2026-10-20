@@ -178,4 +178,29 @@ router.post('/:id/reviews', validate(reviewSchema), (req, res, next) =>
 );
 router.get('/:id/reviews', (req, res, next) => tasksController.getReviews(req, res, next));
 
+// Task Dependencies
+const addDependencySchema = z.object({
+  body: z.object({
+    prerequisiteTaskId: z.string().min(1, 'Prerequisite task ID is required'),
+  }),
+});
+
+const overrideDependencySchema = z.object({
+  body: z.object({
+    overrideReason: z.string().min(2, 'Override reason is required'),
+  }),
+});
+
+router.post('/:id/dependencies', validate(addDependencySchema), (req, res, next) =>
+  tasksController.addDependency(req, res, next)
+);
+router.delete('/:id/dependencies/:prereqId', (req, res, next) =>
+  tasksController.removeDependency(req, res, next)
+);
+router.post(
+  '/:id/dependencies/:prereqId/override',
+  validate(overrideDependencySchema),
+  (req, res, next) => tasksController.overrideDependency(req, res, next)
+);
+
 module.exports = router;

@@ -889,6 +889,154 @@ class TasksService {
       orderBy: { createdAt: 'desc' },
     });
   }
+
+  // Dependencies Management
+  async addDependency(taskId, tenantId, userId, prerequisiteTaskId) {
+    if (taskId === prerequisiteTaskId) {
+      const error = new Error('A task cannot depend on itself.');
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const [task, prereqTask] = await Promise.all([
+      prisma.task.findFirst({ where: { id: taskId, tenantId } }),
+      prisma.task.findFirst({ where: { id: prerequisiteTaskId, tenantId } }),
+    ]);
+
+    if (!task || !prereqTask) {
+      const error = new Error('One or both tasks not found in tenant.');
+      error.statusCode = 404;
+      throw error;
+    }
+
+    const circular = await prisma.taskDependency.findFirst({
+      where: {
+        taskId: prerequisiteTaskId,
+        prerequisiteTaskId: taskId,
+      },
+    });
+
+    if (circular) {
+      const error = new Error('Circular dependency detected. Cannot create dependency loop.');
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const dependency = await prisma.$transaction(async (tx) => {
+      const dep = await tx.taskDependency.create({
+        data: {
+          taskId,
+          prerequisiteTaskId,
+        },
+        include: {
+          prerequisiteTask: {
+            select: { id: true, taskNumber: true, title: true, status: true },
+          },
+        },
+      });
+
+      await tx.taskActivityLog.create({
+        data: {
+          taskId,
+          userId,
+          action: 'DEPENDENCY_ADDED',
+          metadata: JSON.stringify({
+            prerequisiteTaskId,
+            prerequisiteTitle: prereqTask.title,
+          }),
+        },
+      });
+
+      return dep;
+    });
+
+    return dependency;
+  }
+
+  async removeDependency(taskId, tenantId, userId, prerequisiteTaskId) {
+    const dep = await prisma.taskDependency.findFirst({
+      where: {
+        taskId,
+        prerequisiteTaskId,
+        task: { tenantId },
+      },
+    });
+
+    if (!dep) {
+      const error = new Error('Dependency relationship not found.');
+      error.statusCode = 404;
+      throw error;
+    }
+
+    await prisma.$transaction(async (tx) => {
+      await tx.taskDependency.delete({
+        where: { id: dep.id },
+      });
+
+      await tx.taskActivityLog.create({
+        data: {
+          taskId,
+          userId,
+          action: 'DEPENDENCY_REMOVED',
+          metadata: JSON.stringify({ prerequisiteTaskId }),
+        },
+      });
+    });
+
+    return true;
+  }
+
+  async overrideDependency(taskId, tenantId, userId, role, prerequisiteTaskId, overrideReason) {
+    if (role === 'EMPLOYEE') {
+      const error = new Error('Only Managers or Owners can override task prerequisites.');
+      error.statusCode = 403;
+      throw error;
+    }
+
+    if (!overrideReason || !overrideReason.trim()) {
+      const error = new Error('An override justification reason is required.');
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const dep = await prisma.taskDependency.findFirst({
+      where: {
+        taskId,
+        prerequisiteTaskId,
+        task: { tenantId },
+      },
+    });
+
+    if (!dep) {
+      const error = new Error('Dependency relationship not found.');
+      error.statusCode = 404;
+      throw error;
+    }
+
+    const updated = await prisma.$transaction(async (tx) => {
+      const res = await tx.taskDependency.update({
+        where: { id: dep.id },
+        data: {
+          isOverridden: true,
+          overrideReason: overrideReason.trim(),
+          overriddenById: userId,
+        },
+      });
+
+      await tx.taskActivityLog.create({
+        data: {
+          taskId,
+          userId,
+          action: 'DEPENDENCY_OVERRIDDEN',
+          metadata: JSON.stringify({ prerequisiteTaskId, overrideReason }),
+        },
+      });
+
+      return res;
+    });
+
+    return updated;
+  }
 }
 
 module.exports = new TasksService();

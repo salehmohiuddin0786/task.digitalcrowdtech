@@ -31,6 +31,9 @@ import {
   ExternalLink,
   Check,
   AlertCircle,
+  Link2,
+  Lock,
+  Unlock,
 } from 'lucide-react';
 import PriorityBadge from '@/components/PriorityBadge';
 import StatusBadge from '@/components/StatusBadge';
@@ -82,6 +85,17 @@ function TaskDetailContent() {
   const [reviewDecision, setReviewDecision] = useState('APPROVED');
   const [reviewFeedback, setReviewFeedback] = useState('');
   const [submittingReview, setSubmittingReview] = useState(false);
+
+  // Phase 6: Dependencies & Prerequisites
+  const [tenantTasks, setTenantTasks] = useState([]);
+  const [isAddPrereqModalOpen, setIsAddPrereqModalOpen] = useState(false);
+  const [selectedPrereqId, setSelectedPrereqId] = useState('');
+  const [addingPrereq, setAddingPrereq] = useState(false);
+
+  const [isOverrideModalOpen, setIsOverrideModalOpen] = useState(false);
+  const [targetPrereqToOverride, setTargetPrereqToOverride] = useState(null);
+  const [overrideReason, setOverrideReason] = useState('');
+  const [submittingOverride, setSubmittingOverride] = useState(false);
 
   const loadTaskData = useCallback(async () => {
     if (!taskId) return;
@@ -313,6 +327,83 @@ function TaskDetailContent() {
     }
   };
 
+  // Phase 6: Handle Dependencies & Prerequisites
+  const handleOpenAddPrereqModal = async () => {
+    setIsAddPrereqModalOpen(true);
+    try {
+      const res = await api.getTasks({ limit: 100 });
+      if (res.success && res.data) {
+        setTenantTasks(res.data);
+      }
+    } catch (e) {
+      console.error('Error fetching tasks for dependency picker:', e);
+    }
+  };
+
+  const handleAddPrerequisite = async (e) => {
+    e.preventDefault();
+    if (!selectedPrereqId) return;
+    setAddingPrereq(true);
+    try {
+      const res = await api.addTaskDependency(taskId, selectedPrereqId);
+      if (res.success) {
+        setIsAddPrereqModalOpen(false);
+        setSelectedPrereqId('');
+        await loadTaskData();
+      }
+    } catch (err) {
+      alert(err.message || 'Failed to add prerequisite dependency');
+    } finally {
+      setAddingPrereq(false);
+    }
+  };
+
+  const handleRemovePrerequisite = async (prereqId) => {
+    if (!confirm('Remove this prerequisite dependency?')) return;
+    try {
+      const res = await api.removeTaskDependency(taskId, prereqId);
+      if (res.success) {
+        await loadTaskData();
+      }
+    } catch (err) {
+      alert(err.message || 'Failed to remove dependency');
+    }
+  };
+
+  const handleOpenOverrideModal = (prereq) => {
+    setTargetPrereqToOverride(prereq);
+    setOverrideReason('');
+    setIsOverrideModalOpen(true);
+  };
+
+  const handleSubmitOverride = async (e) => {
+    e.preventDefault();
+    if (!overrideReason.trim()) {
+      alert('Please provide a business justification for overriding this prerequisite.');
+      return;
+    }
+    if (!targetPrereqToOverride) return;
+
+    setSubmittingOverride(true);
+    try {
+      const res = await api.overrideTaskDependency(
+        taskId,
+        targetPrereqToOverride.prerequisiteTaskId,
+        overrideReason.trim()
+      );
+      if (res.success) {
+        setIsOverrideModalOpen(false);
+        setTargetPrereqToOverride(null);
+        setOverrideReason('');
+        await loadTaskData();
+      }
+    } catch (err) {
+      alert(err.message || 'Failed to override prerequisite');
+    } finally {
+      setSubmittingOverride(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="p-12 text-center text-xs font-semibold text-[#6B6172]">
@@ -346,6 +437,9 @@ function TaskDetailContent() {
   const isEmployee = role === 'EMPLOYEE';
   const isManagerOrOwner = ['OWNER', 'BRANCH_MANAGER', 'SUPER_ADMIN'].includes(role);
   const requiresProofMissing = task.requiresProof && evidenceList.length === 0;
+  const hasBlockingPrerequisites =
+    task.prerequisites?.some((p) => !p.isOverridden && p.prerequisiteTask?.status !== 'COMPLETED') ||
+    false;
 
   return (
     <div className="space-y-6">
@@ -461,6 +555,23 @@ function TaskDetailContent() {
         </div>
       )}
 
+      {/* Phase 6: Prerequisite Blocking Alert Banner */}
+      {hasBlockingPrerequisites && (
+        <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 flex items-start sm:items-center justify-between gap-3 shadow-xs">
+          <div className="flex items-center gap-3">
+            <Lock className="w-5 h-5 text-amber-600 shrink-0" />
+            <div>
+              <h4 className="text-xs font-bold text-amber-900">
+                Task Execution Blocked by Unfinished Prerequisites
+              </h4>
+              <p className="text-[11px] text-amber-700">
+                This task depends on prior tasks that have not yet reached completion. All prerequisites must be completed or overridden by a manager before starting work.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Main Grid: Left Details & Right Metadata Panel */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
         {/* Left Column (2 Cols): Description, Evidence Gallery, Checklists, Comments */}
@@ -473,6 +584,152 @@ function TaskDetailContent() {
             <div className="text-sm text-[#251A2D] leading-relaxed whitespace-pre-wrap">
               {task.description || (
                 <span className="italic text-[#6B6172]">No description provided for this task.</span>
+              )}
+            </div>
+          </div>
+
+          {/* Phase 6: Task Dependencies & Prerequisites */}
+          <div className="p-5 sm:p-6 rounded-3xl bg-white border border-[#E8DFED] shadow-xs space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-[#E8DFED]">
+              <div className="flex items-center gap-2">
+                <Link2 className="w-4 h-4 text-[#7F5D99]" />
+                <h3 className="text-xs font-bold text-[#4C2365] uppercase tracking-wider">
+                  Task Dependencies & Prerequisites ({task.prerequisites?.length || 0})
+                </h3>
+              </div>
+              {isManagerOrOwner && (
+                <button
+                  type="button"
+                  onClick={handleOpenAddPrereqModal}
+                  className="px-3 py-1.5 rounded-xl bg-[#7F5D99] hover:bg-[#4C2365] text-white font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  Add Prerequisite
+                </button>
+              )}
+            </div>
+
+            {/* Prerequisites List */}
+            <div className="space-y-2.5">
+              <h4 className="text-[11px] font-bold text-[#6B6172] uppercase tracking-wider">
+                Prerequisite Tasks (Must complete first)
+              </h4>
+              {!task.prerequisites || task.prerequisites.length === 0 ? (
+                <p className="text-xs text-[#6B6172] italic py-2">
+                  No prerequisite tasks required. This task can be started directly.
+                </p>
+              ) : (
+                task.prerequisites.map((p) => {
+                  const isCompleted = p.prerequisiteTask?.status === 'COMPLETED';
+                  const isOverridden = p.isOverridden;
+                  const isBlocked = !isCompleted && !isOverridden;
+
+                  return (
+                    <div
+                      key={p.id}
+                      className={`p-3.5 rounded-2xl border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
+                        isCompleted
+                          ? 'bg-emerald-50/50 border-emerald-200'
+                          : isOverridden
+                          ? 'bg-purple-50/50 border-purple-200'
+                          : 'bg-amber-50/40 border-amber-200'
+                      }`}
+                    >
+                      <div className="flex items-start gap-3 min-w-0">
+                        <div className="mt-0.5 shrink-0">
+                          {isCompleted ? (
+                            <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                          ) : isOverridden ? (
+                            <ShieldCheck className="w-4 h-4 text-purple-600" />
+                          ) : (
+                            <Lock className="w-4 h-4 text-amber-600" />
+                          )}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <Link
+                              href={`/dashboard/tasks/${p.prerequisiteTask?.id}`}
+                              className="text-xs font-bold text-[#4C2365] hover:text-[#7F5D99] hover:underline"
+                            >
+                              #{p.prerequisiteTask?.taskNumber}: {p.prerequisiteTask?.title}
+                            </Link>
+                            <StatusBadge status={p.prerequisiteTask?.status} />
+                          </div>
+                          <div className="text-[11px] mt-1 flex items-center gap-2 flex-wrap">
+                            {isCompleted && (
+                              <span className="font-semibold text-emerald-700">✓ Prerequisite Satisfied</span>
+                            )}
+                            {isOverridden && (
+                              <span className="font-semibold text-purple-700">
+                                ⚠ Overridden by Manager {p.overrideReason ? `("${p.overrideReason}")` : ''}
+                              </span>
+                            )}
+                            {isBlocked && (
+                              <span className="font-semibold text-amber-700">
+                                🔒 Blocking — Pending Completion
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
+                        {isBlocked && isManagerOrOwner && (
+                          <button
+                            type="button"
+                            onClick={() => handleOpenOverrideModal(p)}
+                            className="px-2.5 py-1.5 rounded-xl bg-purple-100 hover:bg-purple-200 text-[#4C2365] font-bold text-[11px] flex items-center gap-1 cursor-pointer transition-colors"
+                          >
+                            <Unlock className="w-3 h-3" />
+                            Override Block
+                          </button>
+                        )}
+                        {isManagerOrOwner && (
+                          <button
+                            type="button"
+                            onClick={() => handleRemovePrerequisite(p.prerequisiteTaskId)}
+                            className="p-1.5 text-[#6B6172] hover:text-rose-600 rounded-lg hover:bg-white/80 transition-colors cursor-pointer"
+                            title="Remove prerequisite dependency"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            {/* Downstream Dependents */}
+            <div className="space-y-2 pt-2 border-t border-[#E8DFED]">
+              <h4 className="text-[11px] font-bold text-[#6B6172] uppercase tracking-wider">
+                Downstream Dependents (Tasks waiting on this task) ({task.dependents?.length || 0})
+              </h4>
+              {!task.dependents || task.dependents.length === 0 ? (
+                <p className="text-xs text-[#6B6172] italic">
+                  No other tasks are waiting on this task.
+                </p>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {task.dependents.map((dep) => (
+                    <Link
+                      key={dep.id}
+                      href={`/dashboard/tasks/${dep.task?.id}`}
+                      className="p-2.5 rounded-xl bg-[#FAF6FD] border border-[#E8DFED] hover:border-[#7F5D99] transition-all flex items-center justify-between gap-2"
+                    >
+                      <div className="truncate">
+                        <span className="text-[10px] font-mono font-bold text-[#7F5D99]">
+                          #{dep.task?.taskNumber}
+                        </span>
+                        <div className="text-xs font-semibold text-[#251A2D] truncate">
+                          {dep.task?.title}
+                        </div>
+                      </div>
+                      <StatusBadge status={dep.task?.status} />
+                    </Link>
+                  ))}
+                </div>
               )}
             </div>
           </div>
@@ -1199,6 +1456,152 @@ function TaskDetailContent() {
                 </div>
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 4: Add Prerequisite Dependency */}
+      {isAddPrereqModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+          <div className="bg-white rounded-3xl border border-[#E8DFED] shadow-xl max-w-md w-full p-6 space-y-5">
+            <div className="flex items-center justify-between pb-3 border-b border-[#E8DFED]">
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-xl bg-[#FAF6FD] text-[#7F5D99]">
+                  <Link2 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-[#4C2365]">Add Prerequisite Task</h3>
+                  <p className="text-[11px] text-[#6B6172]">Select a task that must finish before this one</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsAddPrereqModalOpen(false)}
+                className="p-1.5 rounded-lg text-[#6B6172] hover:bg-[#FAF6FD] cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleAddPrerequisite} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-[#4C2365] mb-1.5">
+                  Select Prerequisite Task
+                </label>
+                <select
+                  value={selectedPrereqId}
+                  onChange={(e) => setSelectedPrereqId(e.target.value)}
+                  required
+                  className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-[#E8DFED] bg-white focus:outline-hidden focus:ring-2 focus:ring-[#7F5D99]"
+                >
+                  <option value="">Choose task from tenant workspace...</option>
+                  {tenantTasks
+                    .filter(
+                      (t) =>
+                        t.id !== taskId &&
+                        !task.prerequisites?.some((p) => p.prerequisiteTaskId === t.id)
+                    )
+                    .map((t) => (
+                      <option key={t.id} value={t.id}>
+                        #{t.taskNumber} — {t.title} ({t.status})
+                      </option>
+                    ))}
+                </select>
+              </div>
+
+              <div className="p-3 rounded-2xl bg-[#FAF6FD] border border-[#E8DFED] text-[11px] text-[#6B6172] space-y-1">
+                <p className="font-semibold text-[#4C2365]">Dependency Enforcement:</p>
+                <p>
+                  Until this selected prerequisite is completed or overridden, employees will not be able to mark this task as In Progress or Completed.
+                </p>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-[#E8DFED]">
+                <button
+                  type="button"
+                  onClick={() => setIsAddPrereqModalOpen(false)}
+                  className="px-4 py-2 rounded-xl text-xs font-bold text-[#6B6172] hover:bg-[#FAF6FD] cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={addingPrereq || !selectedPrereqId}
+                  className="px-4 py-2 rounded-xl bg-[#7F5D99] hover:bg-[#4C2365] text-white font-bold text-xs flex items-center gap-1.5 shadow-md cursor-pointer disabled:opacity-50"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  {addingPrereq ? 'Linking...' : 'Link Dependency'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 5: Manager Prerequisite Override */}
+      {isOverrideModalOpen && targetPrereqToOverride && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+          <div className="bg-white rounded-3xl border border-[#E8DFED] shadow-xl max-w-md w-full p-6 space-y-5">
+            <div className="flex items-center justify-between pb-3 border-b border-[#E8DFED]">
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-xl bg-purple-50 text-[#7F5D99]">
+                  <Unlock className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-[#4C2365]">Override Prerequisite Block</h3>
+                  <p className="text-[11px] text-[#6B6172]">Managerial exemption for task progression</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsOverrideModalOpen(false)}
+                className="p-1.5 rounded-lg text-[#6B6172] hover:bg-[#FAF6FD] cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmitOverride} className="space-y-4">
+              <div className="p-3 rounded-2xl bg-amber-50 border border-amber-200 text-xs text-amber-900 space-y-1">
+                <span className="font-bold">Overriding Predecessor Task:</span>
+                <p className="font-semibold text-[#4C2365]">
+                  #{targetPrereqToOverride.prerequisiteTask?.taskNumber} — {targetPrereqToOverride.prerequisiteTask?.title}
+                </p>
+                <p className="text-[11px] text-amber-700">
+                  Status: {targetPrereqToOverride.prerequisiteTask?.status}
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-[#4C2365] mb-1.5">
+                  Business Justification / Override Reason <span className="text-rose-600">*</span>
+                </label>
+                <textarea
+                  rows={3}
+                  value={overrideReason}
+                  onChange={(e) => setOverrideReason(e.target.value)}
+                  placeholder="e.g. Approved by Operations Director to proceed in parallel, materials arrived early..."
+                  required
+                  className="w-full px-3.5 py-2 text-xs rounded-xl border border-[#E8DFED] focus:outline-hidden focus:ring-2 focus:ring-[#7F5D99]"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-[#E8DFED]">
+                <button
+                  type="button"
+                  onClick={() => setIsOverrideModalOpen(false)}
+                  className="px-4 py-2 rounded-xl text-xs font-bold text-[#6B6172] hover:bg-[#FAF6FD] cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={submittingOverride || !overrideReason.trim()}
+                  className="px-4 py-2 rounded-xl bg-gradient-to-r from-[#4C2365] to-[#7F5D99] hover:opacity-95 text-white font-bold text-xs flex items-center gap-1.5 shadow-md cursor-pointer disabled:opacity-50"
+                >
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                  {submittingOverride ? 'Saving Override...' : 'Confirm Override'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

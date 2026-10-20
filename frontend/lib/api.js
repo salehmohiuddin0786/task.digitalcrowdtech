@@ -428,6 +428,49 @@ class ApiClient {
       body: JSON.stringify({ forceAll }),
     });
   }
+
+  // Dependencies
+  addTaskDependency(id, prerequisiteTaskId) {
+    return this.request(`/tasks/${id}/dependencies`, {
+      method: 'POST',
+      body: JSON.stringify({ prerequisiteTaskId }),
+    });
+  }
+
+  removeTaskDependency(id, prereqId) {
+    return this.request(`/tasks/${id}/dependencies/${prereqId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  overrideTaskDependency(id, prereqId, overrideReason) {
+    return this.request(`/tasks/${id}/dependencies/${prereqId}/override`, {
+      method: 'POST',
+      body: JSON.stringify({ overrideReason }),
+    });
+  }
+
+  // Reports & Analytics
+  getOverviewReport(params = {}) {
+    const query = new URLSearchParams(params).toString();
+    return this.request(`/reports/overview${query ? `?${query}` : ''}`);
+  }
+
+  getEmployeeLeaderboard(params = {}) {
+    const query = new URLSearchParams(params).toString();
+    return this.request(`/reports/employees${query ? `?${query}` : ''}`);
+  }
+
+  async exportReportsCSV() {
+    const url = `${API_BASE_URL}/reports/export`;
+    const headers = {};
+    if (this.token) headers['Authorization'] = `Bearer ${this.token}`;
+    if (this.tenantId) headers['x-tenant-id'] = this.tenantId;
+
+    const res = await fetch(url, { headers });
+    if (!res.ok) throw new Error('Failed to download CSV report');
+    return res.text();
+  }
 }
 
 export const api = new ApiClient();

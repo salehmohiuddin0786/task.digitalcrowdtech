@@ -16,6 +16,7 @@ import {
   LogOut,
   ChevronRight,
   ShieldCheck,
+  BarChart3,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 
@@ -32,6 +33,7 @@ export default function Sidebar({ isOpen, onClose }) {
     { label: 'Teams', href: '/dashboard/teams', icon: Users2 },
     { label: 'Employees', href: '/dashboard/employees', icon: UserCircle },
     { label: 'Roles & RBAC', href: '/dashboard/roles', icon: ShieldCheck },
+    { label: 'Reports & Analytics', href: '/dashboard/reports', icon: BarChart3 },
     { label: 'Notifications', href: '/dashboard/notifications', icon: Bell },
     { label: 'Settings', href: '/dashboard/settings', icon: Settings },
   ];

@@ -289,6 +289,53 @@ class TasksController {
       next(error);
     }
   }
+
+  // Dependencies
+  async addDependency(req, res, next) {
+    try {
+      const { prerequisiteTaskId } = req.body;
+      const dep = await tasksService.addDependency(
+        req.params.id,
+        req.tenant.id,
+        req.user.id,
+        prerequisiteTaskId
+      );
+      return apiSuccess(res, dep, 'Prerequisite task dependency added.', 201);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async removeDependency(req, res, next) {
+    try {
+      await tasksService.removeDependency(
+        req.params.id,
+        req.tenant.id,
+        req.user.id,
+        req.params.prereqId
+      );
+      return apiSuccess(res, null, 'Prerequisite task dependency removed.');
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async overrideDependency(req, res, next) {
+    try {
+      const { overrideReason } = req.body;
+      const dep = await tasksService.overrideDependency(
+        req.params.id,
+        req.tenant.id,
+        req.user.id,
+        req.role,
+        req.params.prereqId,
+        overrideReason
+      );
+      return apiSuccess(res, dep, 'Prerequisite dependency successfully overridden.');
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 module.exports = new TasksController();

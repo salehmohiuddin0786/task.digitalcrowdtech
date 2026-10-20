@@ -17,6 +17,7 @@ const notificationsRoutes = require('./modules/notifications/notifications.route
 const tenantRoutes = require('./modules/tenants/tenants.routes');
 const roleRoutes = require('./modules/roles/roles.routes');
 const invitationRoutes = require('./modules/invitations/invitations.routes');
+const reportsRoutes = require('./modules/reports/reports.routes');
 
 const path = require('path');
 const app = express();
@@ -75,6 +76,7 @@ v1Router.use('/notifications', notificationsRoutes);
 v1Router.use('/tenants', tenantRoutes);
 v1Router.use('/roles', roleRoutes);
 v1Router.use('/invitations', invitationRoutes);
+v1Router.use('/reports', reportsRoutes);
 
 app.use('/api/v1', v1Router);
 
