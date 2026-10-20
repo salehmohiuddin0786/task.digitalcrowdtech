@@ -17,24 +17,6 @@ export default function DashboardLayout({ children }) {
     }
   }, [user, loading, router]);
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-[#F8F6FA] flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-12 h-12 rounded-2xl bg-[#7F5D99] animate-pulse mx-auto mb-3 flex items-center justify-center text-white font-bold text-xl shadow-lg">
-            T
-          </div>
-          <p className="text-sm font-semibold text-[#4C2365]">Loading TaskDigitalCrowd...</p>
-          <p className="text-xs text-[#6B6172] mt-1">Verifying secure tenant session</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!user) {
-    return null;
-  }
-
   return (
     <div className="min-h-screen bg-[#F8F6FA] flex">
       {/* Sidebar Navigation */}
