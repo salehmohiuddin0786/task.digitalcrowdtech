@@ -42,11 +42,25 @@ async function resolveTenant(req, res, next) {
     });
 
     if (!membership) {
-      // If platform super admin, grant tenant context if requested or allow platform access
+      // If platform super admin, grant tenant context if requested or resolve default platform access
       if (req.user.isPlatformAdmin) {
-        if (requestedTenantId) {
+        let targetTenantId = requestedTenantId;
+        if (!targetTenantId) {
+          const userMem = await prisma.tenantMember.findFirst({
+            where: { userId: req.user.id, status: 'ACTIVE' },
+            include: { tenant: true },
+          });
+          if (userMem) {
+            targetTenantId = userMem.tenantId;
+          } else {
+            const firstTenant = await prisma.tenant.findFirst({ where: { isSuspended: false } });
+            if (firstTenant) targetTenantId = firstTenant.id;
+          }
+        }
+
+        if (targetTenantId) {
           const tenant = await prisma.tenant.findUnique({
-            where: { id: requestedTenantId },
+            where: { id: targetTenantId },
           });
           if (tenant) {
             req.tenant = tenant;
@@ -57,15 +71,16 @@ async function resolveTenant(req, res, next) {
             req.teamIds = [];
             return next();
           }
-        } else {
-          req.tenant = null;
-          req.membership = null;
-          req.role = 'SUPER_ADMIN';
-          req.permissions = ['*'];
-          req.teams = [];
-          req.teamIds = [];
-          return next();
         }
+
+        // Safe fallback for platform requests without existing tenant
+        req.tenant = { id: null, name: 'Platform Global Scope' };
+        req.membership = null;
+        req.role = 'SUPER_ADMIN';
+        req.permissions = ['*'];
+        req.teams = [];
+        req.teamIds = [];
+        return next();
       }
 
       return apiError(res, 'Access denied. You are not a member of this tenant workspace.', 403);
@@ -77,12 +92,14 @@ async function resolveTenant(req, res, next) {
 
     req.tenant = membership.tenant;
     req.membership = membership;
-    req.role = membership.role.name;
+    req.role = req.user.isPlatformAdmin ? 'SUPER_ADMIN' : membership.role.name;
     req.branch = membership.branch;
     req.branchId = membership.branchId;
     req.teams = membership.teamMemberships ? membership.teamMemberships.map((tm) => tm.team) : [];
     req.teamIds = membership.teamMemberships ? membership.teamMemberships.map((tm) => tm.teamId) : [];
-    req.permissions = membership.role.permissions.map((rp) => rp.permission.slug);
+    req.permissions = req.user.isPlatformAdmin
+      ? ['*']
+      : membership.role.permissions.map((rp) => rp.permission.slug);
 
     next();
   } catch (error) {
@@ -93,7 +110,7 @@ async function resolveTenant(req, res, next) {
 
 function requirePermission(requiredPermission) {
   return (req, res, next) => {
-    if (req.user?.isPlatformAdmin || req.role === 'OWNER') {
+    if (req.user?.isPlatformAdmin || req.role === 'SUPER_ADMIN' || req.role === 'OWNER') {
       return next();
     }
 

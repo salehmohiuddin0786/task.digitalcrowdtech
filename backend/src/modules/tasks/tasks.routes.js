@@ -106,8 +106,15 @@ router.post('/', requirePermission('tasks.create'), validate(createTaskSchema), 
 
 // Recurrence Routes
 router.get('/recurrence', requirePermission('tasks.view'), (req, res, next) => tasksController.getRecurrenceRules(req, res, next));
+router.get('/recurrence/rules', requirePermission('tasks.view'), (req, res, next) => tasksController.getRecurrenceRules(req, res, next));
 router.post(
   '/recurrence',
+  requirePermission('tasks.create'),
+  validate(recurrenceSchema),
+  (req, res, next) => tasksController.createRecurrenceRule(req, res, next)
+);
+router.post(
+  '/recurrence/rules',
   requirePermission('tasks.create'),
   validate(recurrenceSchema),
   (req, res, next) => tasksController.createRecurrenceRule(req, res, next)

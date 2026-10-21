@@ -202,11 +202,14 @@ class AuthService {
 
     // Default to first active membership
     const primaryMembership = user.memberships[0] || null;
-    const activeTenant = primaryMembership ? primaryMembership.tenant : null;
-    const activeRole = primaryMembership ? primaryMembership.role.name : (user.isPlatformAdmin ? 'SUPER_ADMIN' : 'VIEWER');
-    const permissions = primaryMembership
-      ? primaryMembership.role.permissions.map((rp) => rp.permission.slug)
-      : (user.isPlatformAdmin ? ['*'] : []);
+    let activeTenant = primaryMembership ? primaryMembership.tenant : null;
+    if (user.isPlatformAdmin && !activeTenant) {
+      activeTenant = await prisma.tenant.findFirst({ where: { isSuspended: false } });
+    }
+    const activeRole = user.isPlatformAdmin ? 'SUPER_ADMIN' : (primaryMembership ? primaryMembership.role.name : 'VIEWER');
+    const permissions = user.isPlatformAdmin
+      ? ['*']
+      : (primaryMembership ? primaryMembership.role.permissions.map((rp) => rp.permission.slug) : []);
 
     const accessToken = generateAccessToken({
       userId: user.id,
@@ -228,7 +231,7 @@ class AuthService {
       },
     });
 
-    const tenantsList = user.memberships.map((m) => ({
+    let tenantsList = user.memberships.map((m) => ({
       id: m.tenant.id,
       name: m.tenant.name,
       slug: m.tenant.slug,
@@ -236,6 +239,21 @@ class AuthService {
       designation: m.designation,
       branch: m.branch ? { id: m.branch.id, name: m.branch.name } : null,
     }));
+
+    if (user.isPlatformAdmin) {
+      const allTenants = await prisma.tenant.findMany({
+        where: { isSuspended: false },
+        orderBy: { name: 'asc' },
+      });
+      tenantsList = allTenants.map((t) => ({
+        id: t.id,
+        name: t.name,
+        slug: t.slug,
+        role: 'SUPER_ADMIN',
+        designation: 'Platform Super Admin',
+        branch: null,
+      }));
+    }
 
     return {
       user: {
@@ -359,13 +377,22 @@ class AuthService {
       activeMembership = user.memberships[0];
     }
 
-    const activeTenant = activeMembership ? activeMembership.tenant : null;
-    const activeRole = activeMembership ? activeMembership.role.name : (user.isPlatformAdmin ? 'SUPER_ADMIN' : 'VIEWER');
-    const permissions = activeMembership
-      ? activeMembership.role.permissions.map((rp) => rp.permission.slug)
-      : (user.isPlatformAdmin ? ['*'] : []);
+    let activeTenant = activeMembership ? activeMembership.tenant : null;
+    if (user.isPlatformAdmin && !activeTenant) {
+      if (requestedTenantId) {
+        activeTenant = await prisma.tenant.findUnique({ where: { id: requestedTenantId } });
+      }
+      if (!activeTenant) {
+        activeTenant = await prisma.tenant.findFirst({ where: { isSuspended: false } });
+      }
+    }
 
-    const tenantsList = user.memberships.map((m) => ({
+    const activeRole = user.isPlatformAdmin ? 'SUPER_ADMIN' : (activeMembership ? activeMembership.role.name : 'VIEWER');
+    const permissions = user.isPlatformAdmin
+      ? ['*']
+      : (activeMembership ? activeMembership.role.permissions.map((rp) => rp.permission.slug) : []);
+
+    let tenantsList = user.memberships.map((m) => ({
       id: m.tenant.id,
       name: m.tenant.name,
       slug: m.tenant.slug,
@@ -373,6 +400,21 @@ class AuthService {
       designation: m.designation,
       branch: m.branch ? { id: m.branch.id, name: m.branch.name } : null,
     }));
+
+    if (user.isPlatformAdmin) {
+      const allTenants = await prisma.tenant.findMany({
+        where: { isSuspended: false },
+        orderBy: { name: 'asc' },
+      });
+      tenantsList = allTenants.map((t) => ({
+        id: t.id,
+        name: t.name,
+        slug: t.slug,
+        role: 'SUPER_ADMIN',
+        designation: 'Platform Super Admin',
+        branch: null,
+      }));
+    }
 
     // Fetch unread notification count
     let unreadCount = 0;

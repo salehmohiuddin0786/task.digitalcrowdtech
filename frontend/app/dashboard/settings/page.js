@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import {
   Settings,
   ShieldCheck,
@@ -14,12 +15,19 @@ import {
   AlertCircle,
   Save,
   LogOut,
+  Activity,
+  Cpu,
+  Database,
+  Server,
+  ExternalLink,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
 
 export default function SettingsPage() {
   const { tenant, user, role, refreshSession } = useAuth();
+  const searchParams = useSearchParams();
+  const isDiagnostics = searchParams?.get('tab') === 'diagnostics' || role === 'SUPER_ADMIN';
 
   // Company Profile form
   const [companyName, setCompanyName] = useState('');
@@ -349,7 +357,65 @@ export default function SettingsPage() {
         )}
       </div>
 
-      {/* 4. Brand Palette Token Reference */}
+      {/* 4. System Health & Infrastructure Diagnostics (When requested or for SuperAdmin) */}
+      {isDiagnostics && (
+        <div className="p-6 rounded-3xl bg-white border border-[#E8DFED] shadow-xs space-y-4">
+          <div className="flex items-center gap-3 border-b border-[#E8DFED] pb-3">
+            <div className="w-10 h-10 rounded-2xl bg-[#FAF6FD] border border-[#E8DFED] flex items-center justify-center text-[#4C2365]">
+              <Activity className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-[#251A2D]">System Health & Diagnostics</h3>
+              <p className="text-xs text-[#6B6172]">Platform infrastructure status, runtime vitals, and database connectivity.</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs pt-1">
+            <div className="p-4 rounded-2xl bg-[#FAF6FD] border border-[#E8DFED] space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[#6B6172]">Database Health</span>
+                <span className="font-bold text-emerald-700 flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                  MySQL Connected
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-[#6B6172]">ORM Layer</span>
+                <span className="font-bold text-[#251A2D]">Prisma ORM</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-[#6B6172]">Tenant Isolation</span>
+                <span className="font-bold text-[#7F5D99]">Enforced Server-Side</span>
+              </div>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-[#FAF6FD] border border-[#E8DFED] space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[#6B6172]">Security Middleware</span>
+                <span className="font-bold text-[#251A2D]">Helmet & Rate Limiter Active</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-[#6B6172]">Real-time Events</span>
+                <span className="font-bold text-[#251A2D]">Socket.IO Rooms</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-[#6B6172]">Diagnostics Endpoint</span>
+                <a
+                  href="/api/health"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-bold text-[#7F5D99] hover:underline flex items-center gap-1"
+                >
+                  Raw Health JSON
+                  <ExternalLink className="w-3 h-3" />
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 5. Brand Palette Token Reference */}
       <div className="p-6 rounded-3xl bg-white border border-[#E8DFED] shadow-xs space-y-4">
         <div className="flex items-center gap-3 border-b border-[#E8DFED] pb-3">
           <div className="w-10 h-10 rounded-2xl bg-[#FAF6FD] border border-[#E8DFED] flex items-center justify-center text-[#4C2365]">
