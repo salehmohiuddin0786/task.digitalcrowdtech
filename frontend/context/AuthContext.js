@@ -28,11 +28,15 @@ export function AuthProvider({ children }) {
       api.setToken(storedToken);
       const res = await api.getMe();
       if (res.success && res.data) {
+        // Clean up any legacy role override
+        try {
+          localStorage.removeItem('tdc_override_role');
+        } catch (e) {}
+
         setUser(res.data.user);
         setTenant(res.data.tenant);
         setTenants(res.data.tenants || []);
-        const storedOverride = typeof window !== 'undefined' ? localStorage.getItem('tdc_override_role') : null;
-        setRole(storedOverride || res.data.role);
+        setRole(res.data.role);
         setPermissions(res.data.permissions || []);
         setUnreadCount(res.data.unreadNotificationCount || 0);
         if (res.data.tenant) {
@@ -152,16 +156,8 @@ export function AuthProvider({ children }) {
     };
     const target = creds[roleType] || creds.OWNER;
     const res = await login(target.email, target.password);
-    if (res.success) {
-      if (target.role) {
-        setRole(target.role);
-        try {
-          localStorage.setItem('tdc_override_role', target.role);
-        } catch (e) {}
-      }
-      if (typeof window !== 'undefined') {
-        window.location.href = '/dashboard';
-      }
+    if (res.success && typeof window !== 'undefined') {
+      window.location.href = '/dashboard';
     }
     return res;
   };

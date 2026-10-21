@@ -669,7 +669,7 @@ export default function SettingsPage() {
                     <span className="text-[10px] text-[#6B6172] block uppercase font-bold">Realtime WebSockets</span>
                     <span className="font-bold text-emerald-600 text-xs flex items-center gap-1.5 mt-0.5">
                       <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                      Active (Port 5000)
+                      Active (Port 5100)
                     </span>
                   </div>
                   <div className="p-3 rounded-xl bg-white border border-[#E8DFED]">
