@@ -66,6 +66,7 @@ model User {
   refreshSessions RefreshSession[]
   tasksCreated    Task[]         @relation("TasksCreated")
   projectsCreated Project[]      @relation("ProjectsCreated")
+  projectsLed     Project[]      @relation("ProjectsLed")
   taskAssignments TaskAssignment[]
   comments        TaskComment[]
   activityLogs    TaskActivityLog[]
@@ -495,7 +496,9 @@ model Project {
   name            String         @db.VarChar(191)
   code            String?        @db.VarChar(50)
   description     String?        @db.Text
-  status          String         @default("ACTIVE") @db.VarChar(30) // ACTIVE, ON_HOLD, COMPLETED, ARCHIVED
+  status          String         @default("IN_PROGRESS") @db.VarChar(30) // PLANNING, NOT_STARTED, IN_PROGRESS, ON_HOLD, COMPLETED, CANCELLED, ARCHIVED
+  priority        String         @default("MEDIUM") @db.VarChar(20) // LOW, MEDIUM, HIGH, URGENT
+  leadId          String?
   startDate       DateTime?
   targetEndDate   DateTime?
   completedAt     DateTime?
@@ -506,9 +509,12 @@ model Project {
   tenant          Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   branch          Branch?        @relation(fields: [branchId], references: [id], onDelete: SetNull)
   createdBy       User           @relation("ProjectsCreated", fields: [createdById], references: [id])
+  lead            User?          @relation("ProjectsLed", fields: [leadId], references: [id], onDelete: SetNull)
   tasks           Task[]
 
+  @@unique([tenantId, code])
   @@index([tenantId, status])
   @@index([tenantId, branchId])
+  @@index([tenantId, leadId])
   @@map("projects")
 }

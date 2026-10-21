@@ -238,6 +238,15 @@ class ApiClient {
     return this.request(`/projects/${id}`);
   }
 
+  getProjectPreviewCode() {
+    return this.request('/projects/preview-code');
+  }
+
+  getEligibleProjectLeads(branchId) {
+    const query = branchId ? `?branchId=${branchId}` : '';
+    return this.request(`/projects/eligible-leads${query}`);
+  }
+
   createProject(data) {
     return this.request('/projects', {
       method: 'POST',
