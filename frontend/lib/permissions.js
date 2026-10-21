@@ -12,8 +12,8 @@ export function canUser(user, role, permissions = [], action) {
     return true;
   }
 
-  // Viewers are strictly read-only
-  if (role === 'VIEWER') {
+  // Clients, Guests and Viewers are strictly read-only
+  if (role === 'VIEWER' || role === 'CLIENT' || role === 'GUEST') {
     return false;
   }
 
@@ -29,10 +29,10 @@ export function canUser(user, role, permissions = [], action) {
     case 'tasks:review':
       return (
         hasPermission(permissions, 'tasks.review') &&
-        ['BRANCH_MANAGER', 'TEAM_LEADER', 'OWNER'].includes(role)
+        ['BRANCH_MANAGER', 'TEAM_LEADER', 'COMPANY_ADMIN', 'OWNER'].includes(role)
       );
     case 'tasks:override':
-      return ['BRANCH_MANAGER', 'OWNER'].includes(role);
+      return ['BRANCH_MANAGER', 'COMPANY_ADMIN', 'OWNER'].includes(role);
     case 'branches:manage':
       return hasPermission(permissions, 'branches.manage');
     case 'teams:manage':
@@ -43,6 +43,8 @@ export function canUser(user, role, permissions = [], action) {
       return hasPermission(permissions, 'members.invite');
     case 'reports:export':
       return hasPermission(permissions, 'reports.export');
+    case 'billing:manage':
+      return hasPermission(permissions, 'billing.manage') && role !== 'COMPANY_ADMIN';
     case 'settings:manage':
       return hasPermission(permissions, 'settings.manage');
     default:

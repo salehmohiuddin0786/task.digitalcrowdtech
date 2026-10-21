@@ -208,7 +208,7 @@ class TasksService {
   }
 
   async createTask(tenantId, userId, data, role = null, membership = null) {
-    if (role === 'VIEWER') {
+    if (role === 'VIEWER' || role === 'CLIENT') {
       const error = new Error('Access denied. Viewers have read-only access and cannot create tasks.');
       error.statusCode = 403;
       throw error;
@@ -323,7 +323,7 @@ class TasksService {
   }
 
   async updateTaskStatus(taskId, tenantId, user, role, newStatus) {
-    if (role === 'VIEWER') {
+    if (role === 'VIEWER' || role === 'CLIENT') {
       const error = new Error('Access denied. Viewers have read-only access.');
       error.statusCode = 403;
       throw error;
@@ -848,8 +848,8 @@ class TasksService {
   }
 
   async submitReview(taskId, tenantId, reviewerUser, role, data, membership = null) {
-    if (role === 'EMPLOYEE' || role === 'VIEWER') {
-      const error = new Error('Employees and Viewers cannot review or approve tasks. A Manager or Owner is required.');
+    if (role === 'EMPLOYEE' || role === 'VIEWER' || role === 'CLIENT') {
+      const error = new Error('Employees, Clients, and Viewers cannot review or approve tasks. A Manager or Owner is required.');
       error.statusCode = 403;
       throw error;
     }
@@ -1068,7 +1068,7 @@ class TasksService {
   }
 
   async overrideDependency(taskId, tenantId, userId, role, prerequisiteTaskId, overrideReason) {
-    if (role === 'EMPLOYEE') {
+    if (role === 'EMPLOYEE' || role === 'VIEWER' || role === 'CLIENT') {
       const error = new Error('Only Managers or Owners can override task prerequisites.');
       error.statusCode = 403;
       throw error;

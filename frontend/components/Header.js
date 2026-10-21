@@ -29,36 +29,31 @@ export default function Header({ onMenuClick, title = 'Dashboard Overview' }) {
 
       {/* Right Controls */}
       <div className="flex items-center gap-2 sm:gap-4">
-        {/* Quick Demo Role Switcher (Crucial for testing all 4 roles effortlessly) */}
+        {/* Quick Demo Role Switcher */}
         <div className="hidden md:flex items-center gap-1.5 p-1 rounded-xl bg-[#FAF6FD] border border-[#E8DFED]">
-          <span className="text-[11px] font-semibold text-[#6B6172] px-2 flex items-center gap-1">
+          <span className="text-[11px] font-bold text-[#4C2365] px-2 flex items-center gap-1">
             <UserCheck className="w-3.5 h-3.5 text-[#7F5D99]" />
-            Role:
+            Role Preview:
           </span>
-          {['SUPER_ADMIN', 'OWNER', 'BRANCH_MANAGER', 'TEAM_LEADER', 'EMPLOYEE', 'VIEWER'].map((r) => {
-            const labels = {
-              SUPER_ADMIN: 'SuperAdmin',
-              OWNER: 'Owner',
-              BRANCH_MANAGER: 'Manager',
-              TEAM_LEADER: 'Lead',
-              EMPLOYEE: 'Employee',
-              VIEWER: 'Viewer',
-            };
-            const isActive = role === r || (r === 'SUPER_ADMIN' && user?.isPlatformAdmin && !role);
-            return (
-              <button
-                key={r}
-                onClick={() => quickDemoLogin(r)}
-                className={`px-2 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-                  isActive
-                    ? 'bg-[#7F5D99] text-white shadow-xs'
-                    : 'text-[#6B6172] hover:text-[#4C2365] hover:bg-[#F2EDF7]'
-                }`}
-              >
-                {labels[r]}
-              </button>
-            );
-          })}
+          <select
+            value={role || (user?.isPlatformAdmin ? 'SUPER_ADMIN' : 'EMPLOYEE')}
+            onChange={(e) => quickDemoLogin(e.target.value)}
+            className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-white border border-[#E8DFED] text-[#4C2365] focus:outline-hidden focus:ring-2 focus:ring-[#7F5D99] cursor-pointer shadow-2xs"
+          >
+            <optgroup label="Platform Roles">
+              <option value="SUPER_ADMIN">Superadmin</option>
+              <option value="SUPPORT_ADMIN">Support Admin</option>
+              <option value="BILLING_ADMIN">Billing Admin</option>
+            </optgroup>
+            <optgroup label="Organization Roles">
+              <option value="OWNER">Company Owner</option>
+              <option value="COMPANY_ADMIN">Company Admin</option>
+              <option value="BRANCH_MANAGER">Manager</option>
+              <option value="TEAM_LEADER">Team Lead</option>
+              <option value="EMPLOYEE">Employee / Team Member</option>
+              <option value="CLIENT">Client / Guest</option>
+            </optgroup>
+          </select>
         </div>
 
         {/* Notifications */}

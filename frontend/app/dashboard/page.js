@@ -61,9 +61,16 @@ export default function DashboardResolverPage() {
     ? 'SUPER_ADMIN'
     : role || 'EMPLOYEE';
 
+  const isPlatformStaff = ['SUPER_ADMIN', 'SUPPORT_ADMIN', 'BILLING_ADMIN'].includes(effectiveRole) || user?.isPlatformAdmin;
+  const isOwnerOrAdmin = ['OWNER', 'COMPANY_ADMIN', 'ADMIN'].includes(effectiveRole);
+  const isManager = ['BRANCH_MANAGER', 'MANAGER'].includes(effectiveRole);
+  const isLeader = ['TEAM_LEADER', 'TEAM_LEAD'].includes(effectiveRole);
+  const isEmployee = ['EMPLOYEE', 'MEMBER'].includes(effectiveRole);
+  const isClientOrViewer = ['CLIENT', 'GUEST', 'VIEWER'].includes(effectiveRole);
+
   return (
     <>
-      {effectiveRole === 'SUPER_ADMIN' && (
+      {isPlatformStaff && (
         <SuperAdminDashboard
           data={metrics}
           onRefresh={loadData}
@@ -71,7 +78,7 @@ export default function DashboardResolverPage() {
         />
       )}
 
-      {effectiveRole === 'OWNER' && (
+      {!isPlatformStaff && isOwnerOrAdmin && (
         <OwnerDashboard
           data={metrics}
           tenant={tenant}
@@ -81,7 +88,7 @@ export default function DashboardResolverPage() {
         />
       )}
 
-      {effectiveRole === 'BRANCH_MANAGER' && (
+      {!isPlatformStaff && !isOwnerOrAdmin && isManager && (
         <BranchManagerDashboard
           data={metrics}
           tenant={tenant}
@@ -91,7 +98,7 @@ export default function DashboardResolverPage() {
         />
       )}
 
-      {effectiveRole === 'TEAM_LEADER' && (
+      {!isPlatformStaff && !isOwnerOrAdmin && !isManager && isLeader && (
         <TeamLeaderDashboard
           data={metrics}
           tenant={tenant}
@@ -101,7 +108,7 @@ export default function DashboardResolverPage() {
         />
       )}
 
-      {effectiveRole === 'EMPLOYEE' && (
+      {!isPlatformStaff && !isOwnerOrAdmin && !isManager && !isLeader && isEmployee && (
         <EmployeeDashboard
           data={metrics}
           user={user}
@@ -110,7 +117,7 @@ export default function DashboardResolverPage() {
         />
       )}
 
-      {effectiveRole === 'VIEWER' && (
+      {!isPlatformStaff && !isOwnerOrAdmin && !isManager && !isLeader && !isEmployee && isClientOrViewer && (
         <ViewerDashboard
           data={metrics}
           tenant={tenant}

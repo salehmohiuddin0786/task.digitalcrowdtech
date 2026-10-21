@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'next/navigation';
 import {
   BarChart3,
   TrendingUp,
@@ -14,12 +15,17 @@ import {
   Medal,
   Award,
   Filter,
+  History,
+  Shield,
+  Lock,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
 
 export default function ReportsPage() {
   const { user } = useAuth();
+  const searchParams = useSearchParams();
+  const isAuditTab = searchParams?.get('tab') === 'audit';
   const [loading, setLoading] = useState(true);
   const [reportData, setReportData] = useState(null);
   const [leaderboard, setLeaderboard] = useState([]);
@@ -103,11 +109,22 @@ export default function ReportsPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-[#E8DFED]">
         <div>
           <h1 className="text-xl sm:text-2xl font-extrabold text-[#4C2365] tracking-tight flex items-center gap-2">
-            <BarChart3 className="w-6 h-6 text-[#7F5D99]" />
-            Reports & Operational Analytics
+            {isAuditTab ? (
+              <>
+                <History className="w-6 h-6 text-[#7F5D99]" />
+                Security & Platform Audit Logs
+              </>
+            ) : (
+              <>
+                <BarChart3 className="w-6 h-6 text-[#7F5D99]" />
+                Reports & Operational Analytics
+              </>
+            )}
           </h1>
           <p className="text-xs text-[#6B6172] mt-0.5">
-            Cross-branch KPIs, staff productivity leaderboards, and on-time task delivery ratios.
+            {isAuditTab
+              ? 'Immutable audit trail of authentication events, task approvals, role changes, and tenant access.'
+              : 'Cross-branch KPIs, staff productivity leaderboards, and on-time task delivery ratios.'}
           </p>
         </div>
 

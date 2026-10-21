@@ -31,7 +31,8 @@ export function AuthProvider({ children }) {
         setUser(res.data.user);
         setTenant(res.data.tenant);
         setTenants(res.data.tenants || []);
-        setRole(res.data.role);
+        const storedOverride = typeof window !== 'undefined' ? localStorage.getItem('tdc_override_role') : null;
+        setRole(storedOverride || res.data.role);
         setPermissions(res.data.permissions || []);
         setUnreadCount(res.data.unreadNotificationCount || 0);
         if (res.data.tenant) {
@@ -109,6 +110,9 @@ export function AuthProvider({ children }) {
     } finally {
       api.setToken(null);
       api.setTenantId(null);
+      try {
+        localStorage.removeItem('tdc_override_role');
+      } catch (e) {}
       setUser(null);
       setTenant(null);
       setTenants([]);
@@ -135,17 +139,29 @@ export function AuthProvider({ children }) {
 
   const quickDemoLogin = async (roleType) => {
     const creds = {
-      SUPER_ADMIN: { email: 'superadmin@digitalcrowdtech.in', password: 'Password@123' },
-      OWNER: { email: 'admin@digitalcrowdtech.in', password: 'Password@123' },
-      BRANCH_MANAGER: { email: 'manager@digitalcrowdtech.in', password: 'Password@123' },
-      TEAM_LEADER: { email: 'lead@digitalcrowdtech.in', password: 'Password@123' },
-      EMPLOYEE: { email: 'employee@digitalcrowdtech.in', password: 'Password@123' },
-      VIEWER: { email: 'viewer@digitalcrowdtech.in', password: 'Password@123' },
+      SUPER_ADMIN: { email: 'superadmin@digitalcrowdtech.in', password: 'Password@123', role: 'SUPER_ADMIN' },
+      SUPPORT_ADMIN: { email: 'superadmin@digitalcrowdtech.in', password: 'Password@123', role: 'SUPPORT_ADMIN' },
+      BILLING_ADMIN: { email: 'superadmin@digitalcrowdtech.in', password: 'Password@123', role: 'BILLING_ADMIN' },
+      OWNER: { email: 'admin@digitalcrowdtech.in', password: 'Password@123', role: 'OWNER' },
+      COMPANY_ADMIN: { email: 'admin@digitalcrowdtech.in', password: 'Password@123', role: 'COMPANY_ADMIN' },
+      BRANCH_MANAGER: { email: 'manager@digitalcrowdtech.in', password: 'Password@123', role: 'BRANCH_MANAGER' },
+      TEAM_LEADER: { email: 'lead@digitalcrowdtech.in', password: 'Password@123', role: 'TEAM_LEADER' },
+      EMPLOYEE: { email: 'employee@digitalcrowdtech.in', password: 'Password@123', role: 'EMPLOYEE' },
+      CLIENT: { email: 'viewer@digitalcrowdtech.in', password: 'Password@123', role: 'CLIENT' },
+      VIEWER: { email: 'viewer@digitalcrowdtech.in', password: 'Password@123', role: 'CLIENT' },
     };
     const target = creds[roleType] || creds.OWNER;
     const res = await login(target.email, target.password);
-    if (res.success && typeof window !== 'undefined') {
-      window.location.href = '/dashboard';
+    if (res.success) {
+      if (target.role) {
+        setRole(target.role);
+        try {
+          localStorage.setItem('tdc_override_role', target.role);
+        } catch (e) {}
+      }
+      if (typeof window !== 'undefined') {
+        window.location.href = '/dashboard';
+      }
     }
     return res;
   };

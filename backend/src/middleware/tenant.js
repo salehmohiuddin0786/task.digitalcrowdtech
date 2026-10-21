@@ -128,7 +128,7 @@ function requirePermission(requiredPermission) {
 
 function requireRole(allowedRoles = []) {
   return (req, res, next) => {
-    if (req.user?.isPlatformAdmin || req.role === 'OWNER') {
+    if (req.user?.isPlatformAdmin || req.role === 'SUPER_ADMIN' || req.role === 'OWNER') {
       return next();
     }
 
