@@ -207,6 +207,39 @@ class TasksService {
     return task;
   }
 
+  async getCategories(tenantId) {
+    const defaultCategories = [
+      'Operations',
+      'Engineering',
+      'Customer Support',
+      'Design',
+      'Marketing',
+      'Finance',
+      'Quality Assurance',
+      'Administration',
+      'Logistics',
+      'Compliance',
+    ];
+
+    const existingCategories = await prisma.task.findMany({
+      where: {
+        tenantId,
+        category: { not: null },
+      },
+      select: { category: true },
+      distinct: ['category'],
+    });
+
+    const set = new Set(defaultCategories);
+    existingCategories.forEach((t) => {
+      if (t.category && t.category.trim()) {
+        set.add(t.category.trim());
+      }
+    });
+
+    return Array.from(set).sort();
+  }
+
   async createTask(tenantId, userId, data, role = null, membership = null) {
     if (role === 'VIEWER' || role === 'CLIENT') {
       const error = new Error('Access denied. Viewers have read-only access and cannot create tasks.');
@@ -230,6 +263,22 @@ class TasksService {
     let targetBranchId = data.branchId || null;
     let targetTeamId = data.teamId || null;
 
+    // Automatic Branch derivation: if branchId is omitted or not provided,
+    // derive branchId from the selected team or user's assigned branch
+    if (targetTeamId && !targetBranchId) {
+      const team = await prisma.team.findUnique({
+        where: { id: targetTeamId },
+        select: { id: true, branchId: true, tenantId: true },
+      });
+      if (team && team.tenantId === tenantId && team.branchId) {
+        targetBranchId = team.branchId;
+      }
+    }
+
+    if (!targetBranchId && membership?.branchId) {
+      targetBranchId = membership.branchId;
+    }
+
     if (role === 'BRANCH_MANAGER' && membership?.branchId) {
       if (targetBranchId && targetBranchId !== membership.branchId) {
         const error = new Error('Access denied. You cannot create tasks for a branch other than your own.');
@@ -245,6 +294,25 @@ class TasksService {
         const error = new Error('Access denied. You can only create tasks for teams you coordinate.');
         error.statusCode = 403;
         throw error;
+      }
+    }
+
+    // Team-based assignment: if a team is assigned and no individual assignees were specified,
+    // automatically assign active team members
+    let effectiveAssigneeIds = [...(assigneeIds || [])];
+    if (targetTeamId && effectiveAssigneeIds.length === 0) {
+      const teamMembers = await prisma.teamMember.findMany({
+        where: { teamId: targetTeamId },
+        include: {
+          member: {
+            select: { userId: true, status: true },
+          },
+        },
+      });
+      if (teamMembers && teamMembers.length > 0) {
+        effectiveAssigneeIds = teamMembers
+          .filter((tm) => tm.member?.status === 'ACTIVE' && tm.member?.userId)
+          .map((tm) => tm.member.userId);
       }
     }
 
@@ -268,15 +336,15 @@ class TasksService {
       });
 
       // Add assignees
-      if (assigneeIds && assigneeIds.length > 0) {
-        const assignmentData = assigneeIds.map((uid) => ({
+      if (effectiveAssigneeIds && effectiveAssigneeIds.length > 0) {
+        const assignmentData = effectiveAssigneeIds.map((uid) => ({
           taskId: newTask.id,
           userId: uid,
         }));
         await tx.taskAssignment.createMany({ data: assignmentData });
 
         // Add notifications for assigned users
-        for (const uid of assigneeIds) {
+        for (const uid of effectiveAssigneeIds) {
           if (uid !== userId) {
             const notif = await tx.notification.create({
               data: {

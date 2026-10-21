@@ -172,6 +172,13 @@ export const NAVIGATION_CONFIG = {
       permission: 'branches.view',
     },
     {
+      key: 'branch-supervision',
+      label: 'Branch Supervision & Approvals',
+      href: '/dashboard/branches?tab=supervision',
+      icon: ShieldCheck,
+      permission: 'branches.manage',
+    },
+    {
       key: 'all-tasks',
       label: 'All Tasks',
       href: '/dashboard/tasks',
@@ -271,6 +278,13 @@ export const NAVIGATION_CONFIG = {
       href: '/dashboard/branches',
       icon: FolderGit2,
       permission: 'branches.view',
+    },
+    {
+      key: 'branch-supervision',
+      label: 'Branch Supervision & Approvals',
+      href: '/dashboard/branches?tab=supervision',
+      icon: ShieldCheck,
+      permission: 'branches.manage',
     },
     {
       key: 'tasks',

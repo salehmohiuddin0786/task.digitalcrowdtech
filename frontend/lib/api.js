@@ -112,6 +112,10 @@ class ApiClient {
     return this.request(`/tasks${query ? `?${query}` : ''}`);
   }
 
+  getTaskCategories() {
+    return this.request('/tasks/categories');
+  }
+
   getMyTasks(params = {}) {
     const query = new URLSearchParams(params).toString();
     return this.request(`/tasks/my-tasks${query ? `?${query}` : ''}`);
@@ -447,6 +451,25 @@ class ApiClient {
     return this.request(`/tasks/${id}/dependencies/${prereqId}/override`, {
       method: 'POST',
       body: JSON.stringify({ overrideReason }),
+    });
+  }
+
+  // Subscription Plans
+  getPlans() {
+    return this.request('/tenants/plans');
+  }
+
+  createPlan(data) {
+    return this.request('/tenants/plans', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  updatePlan(id, data) {
+    return this.request(`/tenants/plans/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
     });
   }
 

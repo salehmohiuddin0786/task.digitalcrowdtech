@@ -45,10 +45,45 @@ router.get('/', async (req, res, next) => {
         _count: {
           select: { members: true, tasks: true, teams: true },
         },
+        tasks: {
+          select: {
+            id: true,
+            status: true,
+            dueDate: true,
+          },
+        },
       },
       orderBy: { createdAt: 'asc' },
     });
-    return apiSuccess(res, branches, 'Branches retrieved.');
+
+    const now = new Date();
+    const branchesWithStats = branches.map((b) => {
+      const eligibleTasks = b.tasks.filter((t) => t.status !== 'CANCELLED');
+      const totalEligible = eligibleTasks.length;
+      const completed = eligibleTasks.filter((t) => t.status === 'COMPLETED').length;
+      const inProgress = eligibleTasks.filter((t) => t.status === 'IN_PROGRESS').length;
+      const pending = eligibleTasks.filter((t) => ['PENDING', 'CHANGES_REQUESTED', 'SUBMITTED'].includes(t.status)).length;
+      const overdue = eligibleTasks.filter(
+        (t) => t.dueDate && new Date(t.dueDate) < now && t.status !== 'COMPLETED'
+      ).length;
+      const completionPercentage = totalEligible > 0 ? Math.round((completed / totalEligible) * 100) : 0;
+
+      const { tasks, ...rest } = b;
+      return {
+        ...rest,
+        stats: {
+          totalTasks: b.tasks.length,
+          eligibleTasks: totalEligible,
+          completedTasks: completed,
+          inProgressTasks: inProgress,
+          pendingTasks: pending,
+          overdueTasks: overdue,
+          completionPercentage,
+        },
+      };
+    });
+
+    return apiSuccess(res, branchesWithStats, 'Branches retrieved.');
   } catch (error) {
     next(error);
   }

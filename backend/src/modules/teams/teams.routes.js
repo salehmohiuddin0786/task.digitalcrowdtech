@@ -29,8 +29,17 @@ const teamMemberSchema = z.object({
 // 1. List teams
 router.get('/', async (req, res, next) => {
   try {
+    const where = { tenantId: req.tenant.id };
+
+    if (req.role === 'TEAM_LEADER' && req.membership?.teamMemberships?.length > 0) {
+      const teamIds = req.membership.teamMemberships.map((tm) => tm.teamId);
+      where.id = { in: teamIds };
+    } else if (req.role === 'BRANCH_MANAGER' && req.membership?.branchId) {
+      where.branchId = req.membership.branchId;
+    }
+
     const teams = await prisma.team.findMany({
-      where: { tenantId: req.tenant.id },
+      where,
       include: {
         branch: { select: { id: true, name: true, code: true } },
         members: {

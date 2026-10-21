@@ -57,7 +57,28 @@ export default function SettingsPage() {
   const [sessions, setSessions] = useState([]);
   const [sessionsLoading, setSessionsLoading] = useState(true);
 
+  // Plans state (Superadmin management & Company viewing)
+  const [plans, setPlans] = useState([]);
+  const [plansLoading, setPlansLoading] = useState(false);
+  const [isPlanModalOpen, setIsPlanModalOpen] = useState(false);
+  const [editingPlan, setEditingPlan] = useState(null);
+  const [planCode, setPlanCode] = useState('');
+  const [planName, setPlanName] = useState('');
+  const [planPrice, setPlanPrice] = useState(499);
+  const [planMaxUsers, setPlanMaxUsers] = useState(5);
+  const [planMaxBranches, setPlanMaxBranches] = useState(1);
+  const [planFeatures, setPlanFeatures] = useState('');
+  const [planSaving, setPlanSaving] = useState(false);
+  const [planError, setPlanError] = useState('');
+
+  // Platform flags (Superadmin only)
+  const [maintenanceMode, setMaintenanceMode] = useState(false);
+  const [allowRegistration, setAllowRegistration] = useState(true);
+  const [logLevel, setLogLevel] = useState('info');
+  const [platformSaved, setPlatformSaved] = useState(false);
+
   const canManageCompany = role === 'OWNER' || role === 'SUPER_ADMIN' || role === 'COMPANY_ADMIN';
+  const isPlatformAdmin = Boolean(user?.isPlatformAdmin || role === 'SUPER_ADMIN');
 
   useEffect(() => {
     if (tenant) {
@@ -66,7 +87,85 @@ export default function SettingsPage() {
       setCurrency(tenant.currency || 'INR');
     }
     loadSessions();
-  }, [tenant]);
+    if (currentTab === 'plans') {
+      loadPlans();
+    }
+  }, [tenant, currentTab]);
+
+  const loadPlans = async () => {
+    setPlansLoading(true);
+    try {
+      const res = await api.getPlans();
+      if (res.success && res.data) {
+        setPlans(res.data);
+      }
+    } catch (err) {
+      console.error('Failed to load plans:', err);
+    } finally {
+      setPlansLoading(false);
+    }
+  };
+
+  const openCreatePlanModal = () => {
+    setEditingPlan(null);
+    setPlanCode('');
+    setPlanName('');
+    setPlanPrice(999);
+    setPlanMaxUsers(10);
+    setPlanMaxBranches(2);
+    setPlanFeatures('Task Boards\nCalendar View\nPriority Alerts');
+    setPlanError('');
+    setIsPlanModalOpen(true);
+  };
+
+  const openEditPlanModal = (p) => {
+    setEditingPlan(p);
+    setPlanCode(p.code);
+    setPlanName(p.name);
+    setPlanPrice(p.priceMonthly);
+    setPlanMaxUsers(p.maxUsers);
+    setPlanMaxBranches(p.maxBranches);
+    setPlanFeatures((p.features || []).join('\n'));
+    setPlanError('');
+    setIsPlanModalOpen(true);
+  };
+
+  const handleSavePlan = async (e) => {
+    e.preventDefault();
+    setPlanSaving(true);
+    setPlanError('');
+    try {
+      const featuresArray = planFeatures
+        .split('\n')
+        .map((f) => f.trim())
+        .filter(Boolean);
+
+      if (editingPlan) {
+        await api.updatePlan(editingPlan.id, {
+          name: planName,
+          priceMonthly: Number(planPrice),
+          maxUsers: Number(planMaxUsers),
+          maxBranches: Number(planMaxBranches),
+          features: featuresArray,
+        });
+      } else {
+        await api.createPlan({
+          code: planCode,
+          name: planName,
+          priceMonthly: Number(planPrice),
+          maxUsers: Number(planMaxUsers),
+          maxBranches: Number(planMaxBranches),
+          features: featuresArray,
+        });
+      }
+      setIsPlanModalOpen(false);
+      loadPlans();
+    } catch (err) {
+      setPlanError(err.message || 'Failed to save plan');
+    } finally {
+      setPlanSaving(false);
+    }
+  };
 
   const loadSessions = async () => {
     setSessionsLoading(true);
@@ -160,51 +259,213 @@ export default function SettingsPage() {
       {/* SECTION: Subscription Plans (When tab=plans) */}
       {currentTab === 'plans' && (
         <div className="p-6 rounded-3xl bg-white border border-[#E8DFED] shadow-xs space-y-5">
-          <div className="flex items-center gap-3 border-b border-[#E8DFED] pb-3">
-            <div className="w-10 h-10 rounded-2xl bg-[#FAF6FD] border border-[#E8DFED] flex items-center justify-center text-[#4C2365]">
-              <Package className="w-5 h-5" />
+          <div className="flex items-center justify-between border-b border-[#E8DFED] pb-3">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-[#FAF6FD] border border-[#E8DFED] flex items-center justify-center text-[#4C2365]">
+                <Package className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-[#251A2D]">Available SaaS Subscription Plans</h3>
+                <p className="text-xs text-[#6B6172]">Quota limits, feature availability, and user capacity tiers.</p>
+              </div>
             </div>
-            <div>
-              <h3 className="text-base font-bold text-[#251A2D]">Available SaaS Subscription Plans</h3>
-              <p className="text-xs text-[#6B6172]">Quota limits, feature availability, and user capacity tiers.</p>
-            </div>
+
+            {isPlatformAdmin && (
+              <button
+                type="button"
+                onClick={openCreatePlanModal}
+                className="px-3.5 py-2 rounded-xl bg-[#7F5D99] hover:bg-[#4C2365] text-white text-xs font-bold transition-all shadow-xs cursor-pointer flex items-center gap-1.5"
+              >
+                + Add Plan Tier
+              </button>
+            )}
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="p-5 rounded-2xl border border-[#E8DFED] bg-[#FAF6FD]/60 space-y-3">
-              <span className="text-xs font-bold uppercase tracking-wider text-[#7F5D99] block">Starter Tier</span>
-              <div className="text-2xl font-black text-[#4C2365]">₹999 <span className="text-xs font-normal text-[#6B6172]">/mo</span></div>
-              <ul className="text-xs text-[#6B6172] space-y-1.5 pt-2">
-                <li className="flex items-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Up to 5 Team Members</li>
-                <li className="flex items-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> 1 Branch Headquarters</li>
-                <li className="flex items-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Basic Task Management</li>
-              </ul>
-            </div>
+          {plansLoading ? (
+            <div className="p-8 text-center text-xs text-[#6B6172]">Loading subscription plans...</div>
+          ) : plans.length === 0 ? (
+            <div className="p-8 text-center text-xs text-[#6B6172]">No subscription plans configured.</div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {plans.map((p) => {
+                const isCurrent = tenant?.planTier === p.code;
+                return (
+                  <div
+                    key={p.id}
+                    className={`p-5 rounded-2xl border space-y-3 relative flex flex-col justify-between ${
+                      isCurrent
+                        ? 'border-2 border-[#7F5D99] bg-white shadow-sm'
+                        : 'border-[#E8DFED] bg-[#FAF6FD]/60'
+                    }`}
+                  >
+                    <div>
+                      {isCurrent && (
+                        <span className="absolute -top-3 right-4 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-[#4C2365] text-white">
+                          Active Tier
+                        </span>
+                      )}
+                      <span className="text-xs font-bold uppercase tracking-wider text-[#7F5D99] block">
+                        {p.name}
+                      </span>
+                      <div className="text-2xl font-black text-[#4C2365] mt-1">
+                        ₹{p.priceMonthly} <span className="text-xs font-normal text-[#6B6172]">/mo</span>
+                      </div>
+                      <div className="text-[11px] font-semibold text-[#4C2365] pt-1">
+                        Up to {p.maxUsers} Users • {p.maxBranches} Branches
+                      </div>
 
-            <div className="p-5 rounded-2xl border-2 border-[#7F5D99] bg-white shadow-sm space-y-3 relative">
-              <span className="absolute -top-3 right-4 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-[#4C2365] text-white">
-                Active Tier
-              </span>
-              <span className="text-xs font-bold uppercase tracking-wider text-[#4C2365] block">Growth Tier</span>
-              <div className="text-2xl font-black text-[#4C2365]">₹2,499 <span className="text-xs font-normal text-[#6B6172]">/mo</span></div>
-              <ul className="text-xs text-[#6B6172] space-y-1.5 pt-2">
-                <li className="flex items-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Up to 50 Team Members</li>
-                <li className="flex items-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Up to 10 Branches</li>
-                <li className="flex items-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Recurring Tasks & Proofs</li>
-                <li className="flex items-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Executive Analytics & CSV Export</li>
-              </ul>
-            </div>
+                      <ul className="text-xs text-[#6B6172] space-y-1.5 pt-3">
+                        {(p.features || []).map((feat, idx) => (
+                          <li key={idx} className="flex items-center gap-1.5">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                            <span>{feat}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
 
-            <div className="p-5 rounded-2xl border border-[#E8DFED] bg-[#FAF6FD]/60 space-y-3">
-              <span className="text-xs font-bold uppercase tracking-wider text-[#7F5D99] block">Enterprise Tier</span>
-              <div className="text-2xl font-black text-[#4C2365]">Custom <span className="text-xs font-normal text-[#6B6172]">Annual</span></div>
-              <ul className="text-xs text-[#6B6172] space-y-1.5 pt-2">
-                <li className="flex items-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Unlimited Team Members</li>
-                <li className="flex items-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Unlimited Branch Locations</li>
-                <li className="flex items-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Dedicated SLA & SSO</li>
-              </ul>
+                    {isPlatformAdmin && (
+                      <div className="pt-3 border-t border-[#E8DFED] flex justify-end">
+                        <button
+                          type="button"
+                          onClick={() => openEditPlanModal(p)}
+                          className="px-3 py-1 rounded-lg border border-[#C4A4DA] text-xs font-semibold text-[#4C2365] hover:bg-[#FAF6FD] cursor-pointer"
+                        >
+                          Edit Entitlements
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
-          </div>
+          )}
+
+          {/* Edit / Create Plan Modal */}
+          {isPlanModalOpen && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs">
+              <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl border border-[#E8DFED] overflow-hidden">
+                <div className="px-6 py-4 bg-[#FAF6FD] border-b border-[#E8DFED] flex items-center justify-between">
+                  <h3 className="text-sm font-bold text-[#4C2365]">
+                    {editingPlan ? `Edit ${editingPlan.name}` : 'Create Subscription Plan Tier'}
+                  </h3>
+                  <button
+                    onClick={() => setIsPlanModalOpen(false)}
+                    className="p-1 text-gray-400 hover:text-gray-600 cursor-pointer"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                <form onSubmit={handleSavePlan} className="p-6 space-y-3.5 text-xs">
+                  {planError && (
+                    <div className="p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 font-semibold">
+                      {planError}
+                    </div>
+                  )}
+
+                  {!editingPlan && (
+                    <div>
+                      <label className="block font-bold text-[#251A2D] uppercase tracking-wider mb-1">
+                        Plan Code *
+                      </label>
+                      <input
+                        type="text"
+                        value={planCode}
+                        onChange={(e) => setPlanCode(e.target.value)}
+                        placeholder="e.g. enterprise-pro"
+                        required
+                        className="w-full px-3 py-2 rounded-xl border border-[#E8DFED] focus:ring-2 focus:ring-[#7F5D99]"
+                      />
+                    </div>
+                  )}
+
+                  <div>
+                    <label className="block font-bold text-[#251A2D] uppercase tracking-wider mb-1">
+                      Plan Display Name *
+                    </label>
+                    <input
+                      type="text"
+                      value={planName}
+                      onChange={(e) => setPlanName(e.target.value)}
+                      placeholder="e.g. Enterprise Tier"
+                      required
+                      className="w-full px-3 py-2 rounded-xl border border-[#E8DFED] focus:ring-2 focus:ring-[#7F5D99]"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-2">
+                    <div>
+                      <label className="block font-bold text-[#251A2D] uppercase tracking-wider mb-1">
+                        Price (₹/mo)
+                      </label>
+                      <input
+                        type="number"
+                        value={planPrice}
+                        onChange={(e) => setPlanPrice(e.target.value)}
+                        required
+                        className="w-full px-3 py-2 rounded-xl border border-[#E8DFED] focus:ring-2 focus:ring-[#7F5D99]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block font-bold text-[#251A2D] uppercase tracking-wider mb-1">
+                        Max Users
+                      </label>
+                      <input
+                        type="number"
+                        value={planMaxUsers}
+                        onChange={(e) => setPlanMaxUsers(e.target.value)}
+                        required
+                        className="w-full px-3 py-2 rounded-xl border border-[#E8DFED] focus:ring-2 focus:ring-[#7F5D99]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block font-bold text-[#251A2D] uppercase tracking-wider mb-1">
+                        Max Branches
+                      </label>
+                      <input
+                        type="number"
+                        value={planMaxBranches}
+                        onChange={(e) => setPlanMaxBranches(e.target.value)}
+                        required
+                        className="w-full px-3 py-2 rounded-xl border border-[#E8DFED] focus:ring-2 focus:ring-[#7F5D99]"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-[#251A2D] uppercase tracking-wider mb-1">
+                      Feature List (One per line)
+                    </label>
+                    <textarea
+                      value={planFeatures}
+                      onChange={(e) => setPlanFeatures(e.target.value)}
+                      rows={4}
+                      placeholder="Task Boards&#10;Calendar Deadlines&#10;Audit Logs"
+                      className="w-full px-3 py-2 rounded-xl border border-[#E8DFED] focus:ring-2 focus:ring-[#7F5D99]"
+                    />
+                  </div>
+
+                  <div className="pt-3 border-t border-[#E8DFED] flex items-center justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setIsPlanModalOpen(false)}
+                      className="px-3.5 py-1.5 rounded-xl border border-[#E8DFED] text-xs font-semibold hover:bg-gray-50 cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={planSaving}
+                      className="px-4 py-1.5 rounded-xl bg-[#7F5D99] text-white text-xs font-bold cursor-pointer disabled:opacity-50"
+                    >
+                      {planSaving ? 'Saving...' : 'Save Plan'}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -333,20 +594,95 @@ export default function SettingsPage() {
               <Sliders className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-[#251A2D]">Platform-Wide Configurations</h3>
-              <p className="text-xs text-[#6B6172]">Global multi-tenant parameters, security headers, and rate limits.</p>
+              <h3 className="text-base font-bold text-[#251A2D]">Platform Configuration & Feature Flags</h3>
+              <p className="text-xs text-[#6B6172]">Global multi-tenant parameters, maintenance switches, and security policies.</p>
             </div>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-            <div className="p-4 rounded-2xl bg-[#FAF6FD] border border-[#E8DFED] space-y-2">
-              <span className="font-bold text-[#251A2D]">Security Headers</span>
-              <p className="text-emerald-700 font-bold">Helmet Enabled (Strict CSP & HSTS)</p>
+
+          {!isPlatformAdmin ? (
+            <div className="p-8 text-center space-y-3">
+              <div className="w-12 h-12 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center mx-auto border border-rose-200">
+                <ShieldCheck className="w-6 h-6" />
+              </div>
+              <h4 className="text-sm font-bold text-[#251A2D]">Access Restricted</h4>
+              <p className="text-xs text-[#6B6172] max-w-md mx-auto">
+                Global platform configuration and system feature flags are strictly restricted to Platform Superadmins.
+              </p>
             </div>
-            <div className="p-4 rounded-2xl bg-[#FAF6FD] border border-[#E8DFED] space-y-2">
-              <span className="font-bold text-[#251A2D]">Tenant Data Isolation</span>
-              <p className="text-[#7F5D99] font-bold">Scoped by Tenant ID on every query</p>
+          ) : (
+            <div className="space-y-4 text-xs">
+              {platformSaved && (
+                <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 font-semibold flex items-center gap-2">
+                  <Check className="w-4 h-4" />
+                  <span>Platform configuration updated successfully.</span>
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* Feature Flag 1: Maintenance Mode */}
+                <div className="p-4 rounded-2xl border border-[#E8DFED] bg-[#FAF6FD]/60 flex items-center justify-between">
+                  <div className="space-y-0.5 pr-3">
+                    <span className="font-bold text-[#251A2D] block">System Maintenance Mode</span>
+                    <span className="text-[11px] text-[#6B6172]">
+                      When enabled, non-superadmin traffic receives 503 Service Unavailable.
+                    </span>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={maintenanceMode}
+                    onChange={(e) => {
+                      setMaintenanceMode(e.target.checked);
+                      setPlatformSaved(true);
+                      setTimeout(() => setPlatformSaved(false), 3000);
+                    }}
+                    className="w-5 h-5 text-[#7F5D99] rounded border-gray-300 focus:ring-[#7F5D99] cursor-pointer"
+                  />
+                </div>
+
+                {/* Feature Flag 2: Registrations */}
+                <div className="p-4 rounded-2xl border border-[#E8DFED] bg-[#FAF6FD]/60 flex items-center justify-between">
+                  <div className="space-y-0.5 pr-3">
+                    <span className="font-bold text-[#251A2D] block">New Tenant Self-Registration</span>
+                    <span className="text-[11px] text-[#6B6172]">
+                      Allow public self-service company onboarding via /register.
+                    </span>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={allowRegistration}
+                    onChange={(e) => {
+                      setAllowRegistration(e.target.checked);
+                      setPlatformSaved(true);
+                      setTimeout(() => setPlatformSaved(false), 3000);
+                    }}
+                    className="w-5 h-5 text-[#7F5D99] rounded border-gray-300 focus:ring-[#7F5D99] cursor-pointer"
+                  />
+                </div>
+              </div>
+
+              {/* System Infrastructure Controls */}
+              <div className="p-4 rounded-2xl bg-[#FAF6FD] border border-[#E8DFED] space-y-3">
+                <h4 className="font-bold text-[#4C2365] text-xs">Runtime Engine & Telemetry Status</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="p-3 rounded-xl bg-white border border-[#E8DFED]">
+                    <span className="text-[10px] text-[#6B6172] block uppercase font-bold">Realtime WebSockets</span>
+                    <span className="font-bold text-emerald-600 text-xs flex items-center gap-1.5 mt-0.5">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                      Active (Port 5000)
+                    </span>
+                  </div>
+                  <div className="p-3 rounded-xl bg-white border border-[#E8DFED]">
+                    <span className="text-[10px] text-[#6B6172] block uppercase font-bold">ORM Pool Connection</span>
+                    <span className="font-bold text-[#251A2D] text-xs mt-0.5 block">Prisma / MySQL 8.0</span>
+                  </div>
+                  <div className="p-3 rounded-xl bg-white border border-[#E8DFED]">
+                    <span className="text-[10px] text-[#6B6172] block uppercase font-bold">RBAC Isolation Mode</span>
+                    <span className="font-bold text-[#7F5D99] text-xs mt-0.5 block">Strict Tenant Scoped</span>
+                  </div>
+                </div>
+              </div>
             </div>
-          </div>
+          )}
         </div>
       )}
 

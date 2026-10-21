@@ -23,9 +23,11 @@ import { api } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
 
 export default function ReportsPage() {
-  const { user } = useAuth();
+  const { user, role, tenant } = useAuth();
   const searchParams = useSearchParams();
   const isAuditTab = searchParams?.get('tab') === 'audit';
+  const isPlatformRole = Boolean(user?.isPlatformAdmin || role === 'SUPER_ADMIN' || role === 'SUPPORT_ADMIN' || role === 'BILLING_ADMIN');
+
   const [loading, setLoading] = useState(true);
   const [reportData, setReportData] = useState(null);
   const [leaderboard, setLeaderboard] = useState([]);
@@ -117,25 +119,27 @@ export default function ReportsPage() {
             ) : (
               <>
                 <BarChart3 className="w-6 h-6 text-[#7F5D99]" />
-                Reports & Operational Analytics
+                {isPlatformRole ? 'Organization Analytics & Operational Reports' : 'Reports & Operational Analytics'}
               </>
             )}
           </h1>
           <p className="text-xs text-[#6B6172] mt-0.5">
             {isAuditTab
               ? 'Immutable audit trail of authentication events, task approvals, role changes, and tenant access.'
+              : isPlatformRole
+              ? `Organization-wide operational rollups and analytics for ${tenant?.name || 'authorized organizations'}.`
               : 'Cross-branch KPIs, staff productivity leaderboards, and on-time task delivery ratios.'}
           </p>
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
-          {/* Branch Filter */}
+          {/* Branch / Scope Filter */}
           <select
             value={selectedBranchId}
             onChange={(e) => setSelectedBranchId(e.target.value)}
             className="px-3 py-2 text-xs rounded-xl border border-[#E8DFED] bg-white text-[#251A2D] focus:outline-hidden"
           >
-            <option value="">All Branches</option>
+            <option value="">{isPlatformRole ? 'All Organization Units (Combined)' : 'All Branches'}</option>
             {branches.map((b) => (
               <option key={b.id} value={b.id}>
                 {b.name} ({b.code})
@@ -154,6 +158,28 @@ export default function ReportsPage() {
           </button>
         </div>
       </div>
+
+      {/* Platform Role Executive Badge */}
+      {isPlatformRole && !isAuditTab && (
+        <div className="p-3.5 rounded-2xl bg-[#FAF6FD] border border-[#E8DFED] flex flex-wrap items-center justify-between gap-3 text-xs">
+          <div className="flex items-center gap-2.5">
+            <div className="w-7 h-7 rounded-lg bg-[#4C2365] text-white flex items-center justify-center font-bold text-xs">
+              HQ
+            </div>
+            <div>
+              <span className="font-bold text-[#251A2D]">
+                Platform Executive Scope: {tenant?.name || 'Digital Crowd Technologies'}
+              </span>
+              <p className="text-[11px] text-[#6B6172]">
+                Aggregating branch operations, employee velocity, and deliverables across all enterprise workspaces.
+              </p>
+            </div>
+          </div>
+          <span className="px-2.5 py-1 rounded-full bg-white border border-[#E8DFED] text-[10px] font-bold text-[#7F5D99] uppercase">
+            {role} Mode
+          </span>
+        </div>
+      )}
 
       {/* KPI Cards Row */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">

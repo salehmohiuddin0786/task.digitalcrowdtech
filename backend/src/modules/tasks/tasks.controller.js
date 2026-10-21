@@ -42,6 +42,15 @@ class TasksController {
     }
   }
 
+  async getCategories(req, res, next) {
+    try {
+      const categories = await tasksService.getCategories(req.tenant.id);
+      return apiSuccess(res, categories, 'Task categories retrieved successfully.');
+    } catch (error) {
+      next(error);
+    }
+  }
+
   async createTask(req, res, next) {
     try {
       const task = await tasksService.createTask(

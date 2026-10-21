@@ -98,6 +98,7 @@ const recurrenceSchema = z.object({
 });
 
 // Collection routes
+router.get('/categories', requirePermission('tasks.view'), (req, res, next) => tasksController.getCategories(req, res, next));
 router.get('/', requirePermission('tasks.view'), (req, res, next) => tasksController.getTasks(req, res, next));
 router.get('/my-tasks', requirePermission('tasks.view'), (req, res, next) => tasksController.getMyTasks(req, res, next));
 router.post('/', requirePermission('tasks.create'), validate(createTaskSchema), (req, res, next) =>
