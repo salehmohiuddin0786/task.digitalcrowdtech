@@ -95,18 +95,12 @@ function RegisterForm() {
   return (
     <div className="min-h-screen bg-[#F8F6FA] flex flex-col justify-center py-12 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md text-center">
-        <Link href="/" className="inline-flex items-center gap-3">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-[#4C2365] to-[#7F5D99] flex items-center justify-center font-bold text-2xl text-white shadow-md">
-            T
-          </div>
-          <div className="text-left">
-            <span className="font-extrabold text-xl text-[#4C2365] tracking-tight block">
-              TaskDigitalCrowd
-            </span>
-            <span className="text-[10px] text-[#7F5D99] font-bold tracking-wider uppercase">
-              Digital Crowd Technologies
-            </span>
-          </div>
+        <Link href="/" className="inline-flex flex-col items-center gap-2">
+          <img
+            src="/logo.png"
+            alt="TaskDigitalCrowd - Digital Crowd Technologies"
+            className="h-14 sm:h-16 object-contain mx-auto hover:opacity-95 transition-opacity"
+          />
         </Link>
 
         {invitationData ? (

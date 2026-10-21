@@ -13,7 +13,7 @@ const env = {
   CLIENT_URL: process.env.CLIENT_URL || 'http://localhost:4100',
   ALLOWED_ORIGINS: (
     process.env.ALLOWED_ORIGINS ||
-    'http://localhost:4100,http://127.0.0.1:4100,http://localhost:3000,http://127.0.0.1:3000,https://tasks.digitalcrowdtech.in,https://api-tasks.digitalcrowdtech.in,https://digitalcrowdtech.in'
+    'https://apitask.digitalcrowdtech.in,http://localhost:5100,http://127.0.0.1:5100,http://localhost:4100,http://127.0.0.1:4100,http://localhost:3000,http://127.0.0.1:3000,https://tasks.digitalcrowdtech.in,https://api-tasks.digitalcrowdtech.in,https://digitalcrowdtech.in'
   ).split(','),
   DEFAULT_TIMEZONE: process.env.DEFAULT_TIMEZONE || 'Asia/Kolkata',
 };

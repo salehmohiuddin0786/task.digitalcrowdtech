@@ -1,6 +1,14 @@
 import { io } from 'socket.io-client';
 
-const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:5100';
+const getSocketUrl = () => {
+  if (process.env.NEXT_PUBLIC_SOCKET_URL) return process.env.NEXT_PUBLIC_SOCKET_URL;
+  if (typeof window !== 'undefined' && window.location.hostname.includes('digitalcrowdtech.in')) {
+    return 'https://apitask.digitalcrowdtech.in';
+  }
+  return 'http://localhost:5100';
+};
+
+const SOCKET_URL = getSocketUrl();
 
 let socket = null;
 

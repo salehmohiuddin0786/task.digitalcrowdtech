@@ -12,10 +12,12 @@
 
 **task.digitalcrowdtech** is a multi-tenant SaaS task management and operational governance platform built with Next.js (App Router, JavaScript/JSX) and Node.js/Express with Prisma ORM and MySQL. It delivers strict role-based access control (RBAC), multi-branch supervision, team delegation, project velocity tracking with automatic project codes, task lifecycle management with mandatory proof of execution, supervisor reviews, and real-time updates via Socket.IO.
 
-### Core Architecture & Ports
-- **Frontend Web Application:** Runs on port `4100` (`http://localhost:4100`)
-- **Backend REST API & WebSockets:** Runs on port `5100` (`http://localhost:5100`)
-- **API Base Path:** `http://localhost:5100/api/v1`
+### Core Architecture, Domains & Ports
+- **Frontend Web Application:** Runs on port `4100` (`http://localhost:4100` locally, `https://tasks.digitalcrowdtech.in` in production)
+- **Backend REST API & WebSockets:** Runs on port `5100` (`http://localhost:5100` locally, `https://apitask.digitalcrowdtech.in` in production)
+- **API Base Paths:** 
+  - Local: `http://localhost:5100/api/v1`
+  - Production: `https://apitask.digitalcrowdtech.in/api/v1`
 
 ---
 

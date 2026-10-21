@@ -129,9 +129,11 @@ export default function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse
             onClick={onClose}
             className="flex items-center gap-3 overflow-hidden group focus:outline-hidden focus:ring-2 focus:ring-[#C4A4DA] rounded-xl"
           >
-            <div className="w-10 h-10 shrink-0 rounded-xl bg-gradient-to-tr from-[#7F5D99] to-[#C4A4DA] flex items-center justify-center font-extrabold text-xl text-white shadow-md group-hover:scale-105 transition-transform">
-              T
-            </div>
+            <img
+              src="/icon.png"
+              alt="TaskDigitalCrowd Logo"
+              className="w-10 h-10 shrink-0 object-contain group-hover:scale-105 transition-transform"
+            />
             {!isCollapsed && (
               <div className="truncate animate-fadeIn">
                 <h1 className="font-extrabold text-base sm:text-lg tracking-tight text-white leading-tight truncate">

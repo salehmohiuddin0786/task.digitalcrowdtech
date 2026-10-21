@@ -63,19 +63,13 @@ export default function LandingPage() {
       {/* Top Navbar */}
       <header className="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-[#E8DFED]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-18 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-[#4C2365] to-[#7F5D99] flex items-center justify-center font-extrabold text-xl text-white shadow-md">
-              T
-            </div>
-            <div>
-              <span className="font-extrabold text-lg text-[#4C2365] tracking-tight block">
-                TaskDigitalCrowd
-              </span>
-              <span className="text-[10px] text-[#7F5D99] font-semibold tracking-wider uppercase">
-                Digital Crowd Technologies
-              </span>
-            </div>
-          </div>
+          <Link href="/" className="flex items-center gap-3">
+            <img
+              src="/logo.png"
+              alt="TaskDigitalCrowd - Digital Crowd Technologies"
+              className="h-10 sm:h-12 object-contain"
+            />
+          </Link>
 
           <nav className="hidden md:flex items-center gap-8 text-sm font-semibold text-[#6B6172]">
             <a href="#features" className="hover:text-[#4C2365] transition-colors">

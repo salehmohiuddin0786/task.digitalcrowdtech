@@ -1,7 +1,15 @@
 // Centralized API Client
 // Digital Crowd Technologies - TaskDigitalCrowd
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5100/api/v1';
+const getApiBaseUrl = () => {
+  if (process.env.NEXT_PUBLIC_API_URL) return process.env.NEXT_PUBLIC_API_URL;
+  if (typeof window !== 'undefined' && window.location.hostname.includes('digitalcrowdtech.in')) {
+    return 'https://apitask.digitalcrowdtech.in/api/v1';
+  }
+  return 'http://localhost:5100/api/v1';
+};
+
+const API_BASE_URL = getApiBaseUrl();
 
 class ApiClient {
   constructor() {

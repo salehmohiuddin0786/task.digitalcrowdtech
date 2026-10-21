@@ -5,6 +5,14 @@ export const metadata = {
   title: 'TaskDigitalCrowd — Multi-tenant SaaS Task Board Manager',
   description:
     'Assign Tasks. Track Progress. Get Work Done. Digital Crowd Technologies SaaS task management platform.',
+  icons: {
+    icon: [
+      { url: '/favicon.ico', sizes: 'any' },
+      { url: '/icon.png', type: 'image/png' },
+    ],
+    shortcut: '/favicon.ico',
+    apple: '/icon.png',
+  },
 };
 
 export default function RootLayout({ children }) {
