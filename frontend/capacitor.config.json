@@ -4,11 +4,12 @@
   "webDir": "public",
   "bundledWebRuntime": false,
   "server": {
-    "url": "https://tasks.digitalcrowdtech.in",
+    "url": "https://task.digitalcrowdtech.in",
     "cleartext": true,
     "allowNavigation": [
-      "tasks.digitalcrowdtech.in",
+      "task.digitalcrowdtech.in",
       "apitask.digitalcrowdtech.in",
+      "tasks.digitalcrowdtech.in",
       "api-tasks.digitalcrowdtech.in",
       "digitalcrowdtech.in",
       "localhost"
