@@ -23,6 +23,12 @@ dist/
 uploads/
 backend/uploads/
 
+# Mobile & Android builds
+.gradle/
+*.apk
+*.aab
+local.properties
+
 # Logs
 npm-debug.log*
 yarn-debug.log*

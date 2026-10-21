@@ -1,0 +1,27 @@
+{
+  "appId": "in.digitalcrowdtech.tasks",
+  "appName": "TaskDigitalCrowd",
+  "webDir": "public",
+  "bundledWebRuntime": false,
+  "server": {
+    "url": "https://tasks.digitalcrowdtech.in",
+    "cleartext": true,
+    "allowNavigation": [
+      "tasks.digitalcrowdtech.in",
+      "apitask.digitalcrowdtech.in",
+      "api-tasks.digitalcrowdtech.in",
+      "digitalcrowdtech.in",
+      "localhost"
+    ]
+  },
+  "android": {
+    "allowMixedContent": true,
+    "captureInput": true,
+    "webContentsDebuggingEnabled": true
+  },
+  "ios": {
+    "contentInset": "always",
+    "allowsLinkPreview": false,
+    "scrollEnabled": true
+  }
+}

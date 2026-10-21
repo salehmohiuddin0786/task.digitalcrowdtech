@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">TaskDigitalCrowd</string>
+    <string name="title_activity_main">TaskDigitalCrowd</string>
+    <string name="package_name">in.digitalcrowdtech.tasks</string>
+    <string name="custom_url_scheme">in.digitalcrowdtech.tasks</string>
+</resources>

@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { ShieldCheck, ArrowRight, AlertCircle, Sparkles } from 'lucide-react';
+import { ShieldCheck, ArrowRight, AlertCircle } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 
 export default function LoginPage() {
@@ -10,7 +10,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const { login, quickDemoLogin } = useAuth();
+  const { login } = useAuth();
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -19,16 +19,6 @@ export default function LoginPage() {
     const res = await login(email, password);
     if (!res.success) {
       setError(res.message || 'Login failed');
-    }
-    setIsSubmitting(false);
-  };
-
-  const handleQuickDemo = async (roleType) => {
-    setError('');
-    setIsSubmitting(true);
-    const res = await quickDemoLogin(roleType);
-    if (!res.success) {
-      setError(res.message || 'Demo login failed');
     }
     setIsSubmitting(false);
   };
@@ -103,63 +93,6 @@ export default function LoginPage() {
               <ArrowRight className="w-4 h-4" />
             </button>
           </form>
-
-          {/* Quick Demo Credentials Box */}
-          <div className="mt-8 pt-6 border-t border-[#E8DFED]">
-            <div className="flex items-center gap-1.5 text-xs font-bold text-[#4C2365] mb-3">
-              <Sparkles className="w-4 h-4 text-[#7F5D99]" />
-              <span>Instant Demo Role Switcher:</span>
-            </div>
-            <p className="text-[11px] text-[#6B6172] mb-3">
-              Click any role below to sign in instantly and test permissions:
-            </p>
-
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => handleQuickDemo('OWNER')}
-                disabled={isSubmitting}
-                className="p-2 rounded-xl bg-[#FAF6FD] hover:bg-[#F2EDF7] border border-[#E8DFED] text-left transition-colors cursor-pointer"
-              >
-                <div className="text-xs font-bold text-[#4C2365]">Business Owner</div>
-                <div className="text-[10px] text-[#6B6172]">admin@digitalcrowdtech.in</div>
-              </button>
-              <button
-                type="button"
-                onClick={() => handleQuickDemo('BRANCH_MANAGER')}
-                disabled={isSubmitting}
-                className="p-2 rounded-xl bg-[#FAF6FD] hover:bg-[#F2EDF7] border border-[#E8DFED] text-left transition-colors cursor-pointer"
-              >
-                <div className="text-xs font-bold text-[#4C2365]">Branch Manager</div>
-                <div className="text-[10px] text-[#6B6172]">manager@digitalcrowdtech.in</div>
-              </button>
-              <button
-                type="button"
-                onClick={() => handleQuickDemo('TEAM_LEADER')}
-                disabled={isSubmitting}
-                className="p-2 rounded-xl bg-[#FAF6FD] hover:bg-[#F2EDF7] border border-[#E8DFED] text-left transition-colors cursor-pointer"
-              >
-                <div className="text-xs font-bold text-[#4C2365]">Team Leader</div>
-                <div className="text-[10px] text-[#6B6172]">lead@digitalcrowdtech.in</div>
-              </button>
-              <button
-                type="button"
-                onClick={() => handleQuickDemo('EMPLOYEE')}
-                disabled={isSubmitting}
-                className="p-2 rounded-xl bg-[#FAF6FD] hover:bg-[#F2EDF7] border border-[#E8DFED] text-left transition-colors cursor-pointer"
-              >
-                <div className="text-xs font-bold text-[#4C2365]">Staff Employee</div>
-                <div className="text-[10px] text-[#6B6172]">employee@digitalcrowdtech.in</div>
-              </button>
-            </div>
-          </div>
-
-          <div className="mt-6 text-center text-xs text-[#6B6172]">
-            Don't have an organization account?{' '}
-            <Link href="/register" className="font-bold text-[#7F5D99] hover:underline">
-              Register Company
-            </Link>
-          </div>
         </div>
       </div>
     </div>
