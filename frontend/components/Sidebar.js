@@ -27,14 +27,18 @@ export default function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse
 
   const navItems = getAuthorizedNavigation(user, role, permissions, tenant);
 
-  // Helper to determine if a nav link is active
+  // Helper to determine if a nav link is active with segment and query precision
   const isItemActive = (item) => {
     if (!pathname) return false;
-    const [itemPath, itemQuery] = item.href.split('?');
+    const cleanPathname = pathname.replace(/\/+$/, '') || '/';
+    const [itemPathRaw, itemQuery] = item.href.split('?');
+    const itemPath = itemPathRaw.replace(/\/+$/, '') || '/';
 
+    const currentTab = searchParams?.get('tab');
+
+    // 1. If this item specifies query params (e.g. ?tab=plans)
     if (itemQuery) {
-      // Must match both path and query parameters
-      if (pathname !== itemPath) return false;
+      if (cleanPathname !== itemPath) return false;
       const targetParams = new URLSearchParams(itemQuery);
       let match = true;
       targetParams.forEach((val, key) => {
@@ -45,14 +49,52 @@ export default function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse
       return match;
     }
 
+    // 2. If this item has NO query params, but the current URL has a query (like ?tab=...)
+    // and another item in the sidebar specifically handles that query on this path:
+    if (currentTab) {
+      const hasSpecificQuerySibling = navItems.some((other) => {
+        if (other === item) return false;
+        const [otherPathRaw, otherQuery] = other.href.split('?');
+        const otherPath = otherPathRaw.replace(/\/+$/, '') || '/';
+        if (otherPath === cleanPathname && otherQuery) {
+          const params = new URLSearchParams(otherQuery);
+          return params.get('tab') === currentTab;
+        }
+        return false;
+      });
+      if (hasSpecificQuerySibling) {
+        // A more specific sibling handles this tab, so this general item is NOT active
+        return false;
+      }
+    }
+
+    // 3. Exact matching
     if (item.exact) {
-      if (pathname !== itemPath) return false;
-      // If the current URL has search params (e.g. ?tab=tenants), exact /dashboard should NOT be highlighted
-      const currentTab = searchParams?.get('tab');
+      if (cleanPathname !== itemPath) return false;
       return !currentTab;
     }
 
-    return pathname === itemPath || pathname.startsWith(`${itemPath}/`);
+    // 4. Exact path match without specific sub-tab override
+    if (cleanPathname === itemPath) {
+      return true;
+    }
+
+    // 5. Segment-aware child route match (e.g. /dashboard/tasks/123 under /dashboard/tasks)
+    if (cleanPathname.startsWith(`${itemPath}/`)) {
+      // Ensure no other sibling is a more specific match for this sub-path
+      const hasMoreSpecificSibling = navItems.some((other) => {
+        if (other === item) return false;
+        const [otherPathRaw] = other.href.split('?');
+        const otherPath = otherPathRaw.replace(/\/+$/, '') || '/';
+        return (
+          otherPath.length > itemPath.length &&
+          cleanPathname.startsWith(`${otherPath}/`)
+        );
+      });
+      return !hasMoreSpecificSibling;
+    }
+
+    return false;
   };
 
   const isSuperAdminMode = Boolean(user?.isPlatformAdmin && (!role || role === 'SUPER_ADMIN'));

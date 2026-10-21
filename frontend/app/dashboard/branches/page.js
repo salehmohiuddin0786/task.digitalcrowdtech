@@ -19,6 +19,8 @@ import {
   TrendingUp,
   AlertTriangle,
   Lock,
+  FolderGit2,
+  Layers,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
@@ -357,19 +359,36 @@ export default function BranchesPage() {
                   </div>
                 </div>
 
-                {/* Footer metrics & direct task link */}
-                <div className="pt-3 border-t border-[#E8DFED] flex items-center justify-between text-xs">
-                  <div className="flex items-center gap-2 text-[#6B6172]">
-                    <Users className="w-3.5 h-3.5 text-[#9E7EB5]" />
-                    <span>{b._count?.members || 0} Staff</span>
+                {/* Footer metrics & direct links to tasks and projects */}
+                <div className="pt-3 border-t border-[#E8DFED] space-y-2 text-xs">
+                  <div className="flex items-center justify-between text-[#6B6172]">
+                    <div className="flex items-center gap-1.5">
+                      <Users className="w-3.5 h-3.5 text-[#9E7EB5]" />
+                      <span>{b._count?.members || 0} Staff</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <Layers className="w-3.5 h-3.5 text-[#9E7EB5]" />
+                      <span>{b._count?.teams || 0} Teams</span>
+                    </div>
                   </div>
-                  <Link
-                    href={`/dashboard/tasks?branchId=${b.id}`}
-                    className="text-xs font-bold text-[#7F5D99] hover:text-[#4C2365] flex items-center gap-1"
-                  >
-                    <span>View Tasks ({stats.totalTasks})</span>
-                    <ArrowRight className="w-3.5 h-3.5" />
-                  </Link>
+
+                  <div className="flex items-center justify-between pt-1">
+                    <Link
+                      href={`/dashboard/projects?branchId=${b.id}`}
+                      className="text-xs font-semibold text-[#7F5D99] hover:underline flex items-center gap-1"
+                    >
+                      <FolderGit2 className="w-3.5 h-3.5" />
+                      <span>Branch Projects</span>
+                    </Link>
+
+                    <Link
+                      href={`/dashboard/tasks?branchId=${b.id}`}
+                      className="text-xs font-bold text-[#4C2365] hover:text-[#7F5D99] flex items-center gap-1"
+                    >
+                      <span>Tasks ({stats.totalTasks})</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </Link>
+                  </div>
                 </div>
               </div>
             );

@@ -228,6 +228,34 @@ class ApiClient {
     return this.request(`/tasks/${id}/reviews`);
   }
 
+  // Projects Management
+  getProjects(params = {}) {
+    const query = new URLSearchParams(params).toString();
+    return this.request(`/projects${query ? `?${query}` : ''}`);
+  }
+
+  getProjectById(id) {
+    return this.request(`/projects/${id}`);
+  }
+
+  createProject(data) {
+    return this.request('/projects', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  updateProject(id, data) {
+    return this.request(`/projects/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  }
+
+  deleteProject(id) {
+    return this.request(`/projects/${id}`, { method: 'DELETE' });
+  }
+
   // Branches & Teams & Members
   getBranches() {
     return this.request('/branches');
@@ -468,6 +496,32 @@ class ApiClient {
 
   updatePlan(id, data) {
     return this.request(`/tenants/plans/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // Superadmin Management
+  getSuperadminCompanies() {
+    return this.request('/superadmin/companies');
+  }
+
+  updateCompanyStatus(id, data) {
+    return this.request(`/superadmin/companies/${id}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  }
+
+  extendCompanyTrial(id, data) {
+    return this.request(`/superadmin/companies/${id}/extend-trial`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  updateCompanyPortals(id, data) {
+    return this.request(`/superadmin/companies/${id}/portals`, {
       method: 'PATCH',
       body: JSON.stringify(data),
     });

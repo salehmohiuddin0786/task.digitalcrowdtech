@@ -167,8 +167,15 @@ export const NAVIGATION_CONFIG = {
     {
       key: 'projects',
       label: 'Projects',
-      href: '/dashboard/branches',
+      href: '/dashboard/projects',
       icon: FolderGit2,
+      permission: 'branches.view',
+    },
+    {
+      key: 'branches',
+      label: 'Branches',
+      href: '/dashboard/branches',
+      icon: Building2,
       permission: 'branches.view',
     },
     {
@@ -275,8 +282,15 @@ export const NAVIGATION_CONFIG = {
     {
       key: 'projects',
       label: 'Projects',
-      href: '/dashboard/branches',
+      href: '/dashboard/projects',
       icon: FolderGit2,
+      permission: 'branches.view',
+    },
+    {
+      key: 'branches',
+      label: 'Branches',
+      href: '/dashboard/branches',
+      icon: Building2,
       permission: 'branches.view',
     },
     {
@@ -376,8 +390,15 @@ export const NAVIGATION_CONFIG = {
     {
       key: 'my-projects',
       label: 'My Projects',
-      href: '/dashboard/branches',
+      href: '/dashboard/projects',
       icon: FolderGit2,
+      permission: 'branches.view',
+    },
+    {
+      key: 'branches',
+      label: 'Assigned Branches',
+      href: '/dashboard/branches',
+      icon: Building2,
       permission: 'branches.view',
     },
     {
@@ -456,7 +477,7 @@ export const NAVIGATION_CONFIG = {
     {
       key: 'assigned-projects',
       label: 'Assigned Projects',
-      href: '/dashboard/branches',
+      href: '/dashboard/projects',
       icon: FolderGit2,
       permission: 'branches.view',
     },
@@ -529,8 +550,15 @@ export const NAVIGATION_CONFIG = {
     {
       key: 'my-projects',
       label: 'My Projects',
-      href: '/dashboard/branches',
+      href: '/dashboard/projects',
       icon: FolderGit2,
+      permission: 'branches.view',
+    },
+    {
+      key: 'branches',
+      label: 'Assigned Branches',
+      href: '/dashboard/branches',
+      icon: Building2,
       permission: 'branches.view',
     },
     {
@@ -785,7 +813,7 @@ export const NAVIGATION_CONFIG = {
   ],
   project_viewer: [
     { key: 'dashboard', label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-    { key: 'shared-projects', label: 'Shared Projects', href: '/dashboard/branches', icon: FolderGit2 },
+    { key: 'shared-projects', label: 'Shared Projects', href: '/dashboard/projects', icon: FolderGit2 },
     { key: 'project-timeline', label: 'Project Timeline', href: '/dashboard/board', icon: KanbanSquare },
     { key: 'milestones', label: 'Milestones', href: '/dashboard/tasks', icon: CheckSquare },
     { key: 'authorized-reports', label: 'Authorized Reports', href: '/dashboard/reports', icon: BarChart3 },

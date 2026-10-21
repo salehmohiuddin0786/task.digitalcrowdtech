@@ -24,6 +24,10 @@ model Tenant {
   timezone        String         @default("Asia/Kolkata") @db.VarChar(50)
   currency        String         @default("INR") @db.VarChar(10)
   isSuspended     Boolean        @default(false)
+  suspendedAt     DateTime?
+  suspensionReason String?       @db.VarChar(255)
+  suspendedById   String?
+  enabledPortals  String?        @db.Text // JSON array: ["owner","company_admin","manager","hr","lead","employee","client"]
   planId          String?        @db.VarChar(50)
   planTier        String         @default("starter") @db.VarChar(50) // starter, business, growth, enterprise
   maxUsers        Int            @default(5)
@@ -34,6 +38,7 @@ model Tenant {
   members         TenantMember[]
   branches        Branch[]
   teams           Team[]
+  projects        Project[]
   tasks           Task[]
   invitations     Invitation[]
   recurrenceRules RecurrenceRule[]
@@ -60,6 +65,7 @@ model User {
   memberships     TenantMember[]
   refreshSessions RefreshSession[]
   tasksCreated    Task[]         @relation("TasksCreated")
+  projectsCreated Project[]      @relation("ProjectsCreated")
   taskAssignments TaskAssignment[]
   comments        TaskComment[]
   activityLogs    TaskActivityLog[]
@@ -144,6 +150,7 @@ model Branch {
   tenant          Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   members         TenantMember[]
   teams           Team[]
+  projects        Project[]
   tasks           Task[]
 
   @@index([tenantId])
@@ -229,6 +236,7 @@ model Task {
   status          String         @default("PENDING") @db.VarChar(30) // PENDING, IN_PROGRESS, SUBMITTED, CHANGES_REQUESTED, COMPLETED, CANCELLED
   category        String?        @db.VarChar(100)
   branchId        String?
+  projectId       String?
   teamId          String?
   createdById     String
   startDate       DateTime?
@@ -242,6 +250,7 @@ model Task {
 
   tenant          Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   branch          Branch?        @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  project         Project?       @relation(fields: [projectId], references: [id], onDelete: SetNull)
   team            Team?          @relation(fields: [teamId], references: [id], onDelete: SetNull)
   createdBy       User           @relation("TasksCreated", fields: [createdById], references: [id])
   recurrenceRule  RecurrenceRule? @relation(fields: [recurrenceId], references: [id], onDelete: SetNull)
@@ -257,6 +266,7 @@ model Task {
 
   @@index([tenantId, status])
   @@index([tenantId, branchId])
+  @@index([tenantId, projectId])
   @@index([tenantId, dueDate])
   @@index([createdById])
   @@map("tasks")
@@ -459,18 +469,46 @@ model Plan {
 }
 
 model Subscription {
+  id                String         @id @default(uuid())
+  tenantId          String
+  planId            String
+  status            String         @default("ACTIVE") @db.VarChar(30) // ACTIVE, TRIALING, PAST_DUE, CANCELLED
+  startDate         DateTime       @default(now())
+  endDate           DateTime?
+  trialEndsAt       DateTime?
+  isTrialExtended   Boolean        @default(false)
+  trialExtendedDays Int            @default(0)
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  tenant            Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  plan              Plan           @relation(fields: [planId], references: [id])
+
+  @@index([tenantId])
+  @@map("subscriptions")
+}
+
+model Project {
   id              String         @id @default(uuid())
   tenantId        String
-  planId          String
-  status          String         @default("ACTIVE") @db.VarChar(30) // ACTIVE, TRIALING, PAST_DUE, CANCELLED
-  startDate       DateTime       @default(now())
-  endDate         DateTime?
+  branchId        String?
+  name            String         @db.VarChar(191)
+  code            String?        @db.VarChar(50)
+  description     String?        @db.Text
+  status          String         @default("ACTIVE") @db.VarChar(30) // ACTIVE, ON_HOLD, COMPLETED, ARCHIVED
+  startDate       DateTime?
+  targetEndDate   DateTime?
+  completedAt     DateTime?
+  createdById     String
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
 
   tenant          Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  plan            Plan           @relation(fields: [planId], references: [id])
+  branch          Branch?        @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  createdBy       User           @relation("ProjectsCreated", fields: [createdById], references: [id])
+  tasks           Task[]
 
-  @@index([tenantId])
-  @@map("subscriptions")
+  @@index([tenantId, status])
+  @@index([tenantId, branchId])
+  @@map("projects")
 }

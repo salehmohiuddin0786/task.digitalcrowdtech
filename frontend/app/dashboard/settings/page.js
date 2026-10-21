@@ -29,6 +29,7 @@ import {
   BookOpen,
   Sliders,
   CheckCircle2,
+  X,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';

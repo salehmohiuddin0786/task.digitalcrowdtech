@@ -20,6 +20,8 @@ const tenantRoutes = require('./modules/tenants/tenants.routes');
 const roleRoutes = require('./modules/roles/roles.routes');
 const invitationRoutes = require('./modules/invitations/invitations.routes');
 const reportsRoutes = require('./modules/reports/reports.routes');
+const projectsRoutes = require('./modules/projects/projects.routes');
+const superadminRoutes = require('./modules/superadmin/superadmin.routes');
 
 const path = require('path');
 const app = express();
@@ -111,6 +113,8 @@ v1Router.use('/tenants', tenantRoutes);
 v1Router.use('/roles', roleRoutes);
 v1Router.use('/invitations', invitationRoutes);
 v1Router.use('/reports', reportsRoutes);
+v1Router.use('/projects', projectsRoutes);
+v1Router.use('/superadmin', superadminRoutes);
 
 app.use('/api/v1', apiLimiter, v1Router);
 

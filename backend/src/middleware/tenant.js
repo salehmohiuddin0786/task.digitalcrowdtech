@@ -90,6 +90,33 @@ async function resolveTenant(req, res, next) {
       return apiError(res, 'This organization account has been suspended. Please contact billing support.', 403);
     }
 
+    // Check organization portal access entitlements
+    if (membership.tenant.enabledPortals && !req.user.isPlatformAdmin) {
+      try {
+        const allowedPortals = JSON.parse(membership.tenant.enabledPortals);
+        const roleToPortalMap = {
+          OWNER: 'owner',
+          COMPANY_ADMIN: 'company_admin',
+          BRANCH_MANAGER: 'manager',
+          TEAM_LEADER: 'lead',
+          EMPLOYEE: 'employee',
+          HR_ADMIN: 'hr',
+          VIEWER: 'client',
+          CLIENT: 'client',
+        };
+        const requiredPortal = roleToPortalMap[membership.role.name];
+        if (requiredPortal && Array.isArray(allowedPortals) && !allowedPortals.includes(requiredPortal)) {
+          return apiError(
+            res,
+            `Access Restricted: The ${membership.role.label || membership.role.name} portal is currently disabled for your organization. Please contact your organization administrator.`,
+            403
+          );
+        }
+      } catch (err) {
+        // Fallback gracefully
+      }
+    }
+
     req.tenant = membership.tenant;
     req.membership = membership;
     req.role = req.user.isPlatformAdmin ? 'SUPER_ADMIN' : membership.role.name;
